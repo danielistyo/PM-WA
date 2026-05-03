@@ -49,6 +49,29 @@ func (c *Client) GetGroupParticipants(ctx context.Context, groupJID types.JID) (
 	return participants, nil
 }
 
+func (c *Client) GetGroupParticipantsEx(ctx context.Context, groupJID types.JID) (map[string]bool, bool, error) {
+	groupInfo, err := c.WA.GetGroupInfo(ctx, groupJID)
+	if err != nil {
+		return nil, false, err
+	}
+	participants := make(map[string]bool)
+	hasPhoneJIDs := false
+	for _, p := range groupInfo.Participants {
+		if p.JID.Server != "lid" {
+			hasPhoneJIDs = true
+		}
+		// Always index by primary JID user
+		participants[p.JID.ToNonAD().User] = true
+		// Also index by phone number user when available (handles LID-primary groups
+		// where the primary JID is a LID but we store phone-based JIDs for assignees)
+		if !p.PhoneNumber.IsEmpty() {
+			participants[p.PhoneNumber.ToNonAD().User] = true
+			hasPhoneJIDs = true
+		}
+	}
+	return participants, hasPhoneJIDs, nil
+}
+
 func (c *Client) GetJoinedGroups(ctx context.Context) ([]types.GroupInfo, error) {
 	groups, err := c.WA.GetJoinedGroups(ctx)
 	if err != nil {

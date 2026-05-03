@@ -14,6 +14,7 @@ func (d *Database) migrate() error {
 
 	migrations := []string{
 		migrationV1,
+		migrationV2,
 	}
 
 	for i, m := range migrations {
@@ -99,3 +100,7 @@ CREATE INDEX idx_message_map_list ON message_map(task_list_id);
 func (d *Database) BeginTx() (*sql.Tx, error) {
 	return d.db.Begin()
 }
+
+var migrationV2 = `
+ALTER TABLE task_lists ADD COLUMN last_reminded_date TEXT;
+`

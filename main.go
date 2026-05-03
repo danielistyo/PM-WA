@@ -47,7 +47,7 @@ func main() {
 		db:           database,
 		cmdHandler:   cmd.NewHandler(client, database),
 		replyHandler: reply.NewHandler(client, database),
-		scheduler:    scheduler.New(client, database),
+		scheduler:    scheduler.New(client, database, cfg.ScheduleTime),
 	}
 
 	client.WA.AddEventHandler(app.eventHandler)
@@ -109,6 +109,7 @@ func (app *App) handleGroupMessage(evt *events.Message) {
 func (app *App) handleConnected() {
 	slog.Info("connected to WhatsApp")
 	app.syncGroups()
+	app.scheduler.Stop()
 	app.scheduler.Start()
 }
 

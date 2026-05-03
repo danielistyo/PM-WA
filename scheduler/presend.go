@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"go.mau.fi/whatsmeow/types"
 
@@ -15,8 +16,13 @@ func (s *Scheduler) refreshAssigneePresence(ctx context.Context, list *db.TaskLi
 		return
 	}
 
-	participantSet, err := s.client.GetGroupParticipants(ctx, groupJID)
+	participantSet, hasPhoneJIDs, err := s.client.GetGroupParticipantsEx(ctx, groupJID)
 	if err != nil {
+		return
+	}
+
+	if !hasPhoneJIDs {
+		slog.Warn("group uses LID-only participants, skipping assignee presence check", "group", list.GroupJID)
 		return
 	}
 

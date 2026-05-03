@@ -279,3 +279,11 @@ func (d *Database) GetAssigneesByGroup(groupJID string, taskListID int64) ([]Tas
 	}
 	return assignees, nil
 }
+
+func (d *Database) ResetAllAssigneesLeft() (int64, error) {
+	res, err := d.db.Exec(`UPDATE task_assignees SET left_group = 0 WHERE left_group = 1`)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}

@@ -40,8 +40,8 @@ func (h *Handler) stopList(ctx context.Context, senderJID types.JID, fields map[
 		if err == nil && pnJID != types.EmptyJID {
 			finalSenderStr = pnJID.String() // Safely becomes "6283856883938@s.whatsapp.net"
 		} else {
-			// Fallback to the LID string if lookup fails or isn't cached yet
-			finalSenderStr = cleanSender.String()
+			h.sendPM(ctx, senderJID, "Command Aborted: Unable to verify your identity due to multi-device issues. Please ensure your account is properly linked and try again.")
+			return
 		}
 	} else {
 		// 2. It's already a standard phone number JID ("s.whatsapp.net")

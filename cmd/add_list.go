@@ -36,7 +36,28 @@ func (h *Handler) addList(ctx context.Context, senderJID types.JID, fields map[s
 		return
 	}
 
-	_, err = h.db.CreateTaskList(name, groupJID.String(), senderJID.ToNonAD().String())
+	// Strip multi-device suffixes first
+	cleanSender := senderJID.ToNonAD()
+	var finalSenderStr string
+
+	// 1. Check if the sender's domain server is explicitly a LID
+	if cleanSender.Server == types.HiddenUserServer { // "lid"
+		// It's a LID, so try to look up the associated Phone Number JID
+		pnJID, err := h.client.WA.Store.LIDs.GetPNForLID(ctx, cleanSender)
+
+		// If no database error occurred and the returned JID is valid, use it
+		if err == nil && pnJID != types.EmptyJID {
+			finalSenderStr = pnJID.String() // Safely becomes "6283856883938@s.whatsapp.net"
+		} else {
+			h.sendPM(ctx, senderJID, "Your account is currently in a state that cannot create Task Lists. Please ensure you are logged in on a primary device and try again. If the issue persists, contact support.")
+			return
+		}
+	} else {
+		// 2. It's already a standard phone number JID ("s.whatsapp.net")
+		finalSenderStr = cleanSender.String()
+	}
+
+	_, err = h.db.CreateTaskList(name, groupJID.String(), finalSenderStr)
 	if err != nil {
 		h.sendPM(ctx, senderJID, "Internal error, please retry.")
 		return

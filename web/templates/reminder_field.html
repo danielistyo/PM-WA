@@ -1,0 +1,44 @@
+{{define "reminder_field"}}
+<div class="reminder-field" data-reminder-field data-initial="{{.}}">
+  <input type="hidden" name="reminder" data-reminder-value value="{{.}}">
+
+  <button type="button" id="reminder" class="rj-field" data-rj-toggle aria-haspopup="dialog" aria-expanded="false">
+    <span class="rj-display-text" data-rj-display></span>
+    <span class="rj-chevron" aria-hidden="true">▾</span>
+  </button>
+
+  <div class="rj-panel" data-rj-panel hidden>
+    <div class="rj-quick" data-rj-quick role="group" aria-label="Reminder type">
+      <button type="button" class="rj-quick-btn" data-mode="no">No reminder</button>
+      <button type="button" class="rj-quick-btn" data-mode="yes">At deadline</button>
+      <button type="button" class="rj-quick-btn" data-mode="at">Once at&hellip;</button>
+      <button type="button" class="rj-quick-btn" data-mode="cron">Recurring</button>
+    </div>
+
+    <div class="rj-at" data-reminder-at hidden>
+      <input type="datetime-local" data-reminder-at-input step="60">
+      <div class="rj-hint">The reminder will fire once at this date &amp; time (GMT+7).</div>
+    </div>
+
+    <div class="rj-cron" data-reminder-cron hidden>
+      <div class="rj-row" data-cron-row>
+        <span class="rj-prefix">Every</span>
+        <select data-cron-period aria-label="Period"></select>
+        <span class="rj-field-wrap" data-cron-field="month" hidden><span class="rj-prefix">in</span><span class="rj-multi" data-multi="month"></span></span>
+        <span class="rj-field-wrap" data-cron-field="monthday" hidden><span class="rj-prefix">on the</span><span class="rj-multi" data-multi="monthday"></span></span>
+        <span class="rj-field-wrap" data-cron-field="weekday" hidden><span class="rj-prefix">on</span><span class="rj-multi" data-multi="weekday"></span></span>
+        <span class="rj-field-wrap" data-cron-field="hour" hidden><span class="rj-prefix">at</span><span class="rj-multi" data-multi="hour"></span></span>
+        <span class="rj-field-wrap" data-cron-field="minute" hidden><span class="rj-prefix" data-cron-minute-prefix>:</span><span class="rj-multi" data-multi="minute"></span><span class="rj-prefix" data-cron-minute-suffix hidden>minute(s)</span></span>
+        <button type="button" class="rj-custom-btn" data-cron-custom-btn>Cron expression</button>
+      </div>
+
+      <div class="rj-custom" data-cron-custom hidden>
+        <input type="text" class="rj-custom-input" data-cron-custom-input placeholder="e.g. 0 20 * * 1  /  */15 * * * *">
+        <div class="rj-hint">Custom 5-field cron expression. Examples: 0 20 * * 1 (Monday at 20:00), 30 9,18 * * 1-5 (weekdays at 09:30 and 18:30), */15 * * * * (every 15 minutes).</div>
+      </div>
+
+      <div class="rj-preview" data-cron-preview><code class="rj-raw" data-cron-raw></code><span class="rj-human" data-cron-human></span></div>
+    </div>
+  </div>
+</div>
+{{end}}

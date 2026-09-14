@@ -20,7 +20,7 @@
       <input id="deadline" name="deadline" required value="{{.DeadlineText}}">
 
       <label for="reminder">Reminder</label>
-      <input id="reminder" name="reminder" value="{{.ReminderText}}" placeholder="yes / no / every monday at 20:00 / 2026-07-01 09:00">
+      {{template "reminder_field" .ReminderText}}
 
       <div class="actions">
         <button class="btn" type="submit">Save changes</button>

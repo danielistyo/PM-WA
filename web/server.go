@@ -3,6 +3,7 @@ package web
 import (
 	"embed"
 	"html/template"
+	"io/fs"
 	"net/http"
 	"strings"
 	"time"
@@ -13,6 +14,9 @@ import (
 
 //go:embed templates/*.html
 var templatesFS embed.FS
+
+//go:embed static
+var staticFS embed.FS
 
 var gmt7 = time.FixedZone("GMT+7", 7*60*60)
 
@@ -47,11 +51,21 @@ func NewServer(database *db.Database, client *bot.Client, baseURL string) *Serve
 	}
 }
 
+func subFS(fsys fs.FS, dir string) fs.FS {
+	s, err := fs.Sub(fsys, dir)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 func (s *Server) Start(addr string) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /auth/{token}", s.handleAuth)
 	mux.HandleFunc("POST /logout", s.requireSession(s.handleLogout))
+
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(subFS(staticFS, "static")))))
 
 	mux.HandleFunc("GET /{$}", s.requireSession(s.handleIndex))
 	mux.HandleFunc("GET /lists/new", s.requireSession(s.handleNewList))

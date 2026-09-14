@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "head"}}<title>{{.List.Name}}</title></head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>{{.List.Name}}</h1>
+      <a href="/">Home</a>
+    </div>
+    <p class="muted">{{.GroupName}} &middot; <span class="pill {{.List.Status}}">{{.List.Status}}</span></p>
+
+    <div class="card">
+      <div class="actions">
+        {{if ne .List.Status "stopped"}}
+        <form method="post" action="/lists/{{.List.ID}}/publish" class="inline">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button class="btn" type="submit">{{if eq .List.Status "active"}}Re-send summary{{else}}Publish{{end}}</button>
+        </form>
+        <form method="post" action="/lists/{{.List.ID}}/stop" class="inline" onsubmit="return confirm('Permanently stop this list?');">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button class="btn secondary" type="submit">Stop</button>
+        </form>
+        {{end}}
+        <form method="post" action="/lists/{{.List.ID}}/delete" class="inline" onsubmit="return confirm('Delete this list and all its tasks?');">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button class="btn danger" type="submit">Delete list</button>
+        </form>
+      </div>
+    </div>
+
+    <h2>Tasks</h2>
+    <div class="card">
+      {{if not .Tasks}}<p class="muted">No tasks yet.</p>{{end}}
+      {{range .Tasks}}
+        <div class="task">
+          <div class="row">
+            <div class="{{if eq .Status "done"}}done{{end}}">
+              <strong>{{.Position}}. {{.Title}}</strong>
+              <div class="muted">due {{fmtTime .Deadline}}{{if .Reminder}} &middot; reminder on{{end}}</div>
+            </div>
+            <span class="pill">{{.Status}}</span>
+          </div>
+          {{if ne $.List.Status "stopped"}}
+          <div class="actions">
+            <a href="/lists/{{$.List.ID}}/tasks/{{.Position}}/edit">Edit</a>
+            <form method="post" action="/lists/{{$.List.ID}}/tasks/{{.Position}}/delete" class="inline" onsubmit="return confirm('Delete this task?');">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <button class="btn link" type="submit" style="color:var(--danger)">Delete</button>
+            </form>
+          </div>
+          {{end}}
+        </div>
+      {{end}}
+    </div>
+
+    {{if ne .List.Status "stopped"}}
+    <h2>Add task</h2>
+    <form method="post" action="/lists/{{.List.ID}}/tasks" class="card">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label for="title">Title</label>
+      <input id="title" name="title" required maxlength="200">
+
+      <label for="assign">Assignees (comma-separated phone numbers)</label>
+      <input id="assign" name="assign" placeholder="6281234567890, 6289876543210" required>
+
+      <label for="deadline">Deadline (YYYY-MM-DD HH:MM)</label>
+      <input id="deadline" name="deadline" placeholder="2026-07-01 17:00" required>
+
+      <label for="reminder">Reminder</label>
+      <input id="reminder" name="reminder" placeholder="yes / no / every monday at 20:00 / 2026-07-01 09:00">
+
+      <div class="actions">
+        <button class="btn" type="submit">Add task</button>
+      </div>
+    </form>
+    {{end}}
+  </div>
+</body>
+</html>

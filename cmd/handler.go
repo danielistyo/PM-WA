@@ -13,14 +13,16 @@ import (
 )
 
 type Handler struct {
-	client *bot.Client
-	db     *db.Database
+	client     *bot.Client
+	db         *db.Database
+	webBaseURL string
 }
 
-func NewHandler(client *bot.Client, database *db.Database) *Handler {
+func NewHandler(client *bot.Client, database *db.Database, webBaseURL string) *Handler {
 	return &Handler{
-		client: client,
-		db:     database,
+		client:     client,
+		db:         database,
+		webBaseURL: webBaseURL,
 	}
 }
 
@@ -49,6 +51,8 @@ func (h *Handler) HandleCommand(senderJID types.JID, text string) {
 		h.listLists(ctx, senderJID, parsed.Fields)
 	case "list-tasks":
 		h.listTasks(ctx, senderJID, parsed.Fields)
+	case "tasklist-web":
+		h.tasklistWeb(ctx, senderJID)
 	}
 }
 
@@ -74,6 +78,21 @@ func (h *Handler) sendPM(ctx context.Context, userJID types.JID, text string) {
 	if err := h.client.SendPM(ctx, userJID, text); err != nil {
 		slog.Error("failed to send PM", "user", userJID.String(), "error", err)
 	}
+}
+
+// resolveSenderPN resolves a sender JID to its canonical phone-number JID string
+// (e.g. "6283856883938@s.whatsapp.net"), matching how AdminJID is stored.
+// Returns ok=false when a LID cannot be mapped to a phone number.
+func (h *Handler) resolveSenderPN(ctx context.Context, senderJID types.JID) (string, bool) {
+	cleanSender := senderJID.ToNonAD()
+	if cleanSender.Server == types.HiddenUserServer {
+		pnJID, err := h.client.WA.Store.LIDs.GetPNForLID(ctx, cleanSender)
+		if err != nil || pnJID == types.EmptyJID {
+			return "", false
+		}
+		return pnJID.String(), true
+	}
+	return cleanSender.String(), true
 }
 
 func (h *Handler) postSummaryMessage(ctx context.Context, groupJID types.JID, taskList *db.TaskList) {

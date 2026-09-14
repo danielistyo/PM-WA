@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "head"}}<title>New List</title></head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>New List</h1>
+      <a href="/">Cancel</a>
+    </div>
+
+    {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+
+    <form method="post" action="/lists" class="card">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label for="name">List name</label>
+      <input id="name" name="name" required maxlength="120">
+
+      <label for="group">WhatsApp group</label>
+      {{if .Groups}}
+        <select id="group" name="group" required>
+          {{range .Groups}}<option value="{{.JID}}">{{.Name}}</option>{{end}}
+        </select>
+      {{else}}
+        <p class="muted">No groups available. The bot must be a member of a group you also belong to.</p>
+      {{end}}
+
+      <div class="actions">
+        <button class="btn" type="submit" {{if not .Groups}}disabled{{end}}>Create list</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

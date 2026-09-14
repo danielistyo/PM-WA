@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "head"}}<title>My Task Lists</title></head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>My Task Lists</h1>
+      <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button class="btn link" type="submit">Sign out</button>
+      </form>
+    </div>
+
+    <p><a class="btn" href="/lists/new">+ New list</a></p>
+
+    {{if not .Lists}}
+      <div class="card"><p class="muted">You don't have any task lists yet.</p></div>
+    {{end}}
+
+    {{range .Lists}}
+      <a class="card row" href="/lists/{{.List.ID}}" style="text-decoration:none;color:inherit;display:flex">
+        <div>
+          <strong>{{.List.Name}}</strong>
+          <div class="muted">{{.GroupName}} &middot; {{.TaskCount}} task(s)</div>
+        </div>
+        <span class="pill {{.List.Status}}">{{.List.Status}}</span>
+      </a>
+    {{end}}
+  </div>
+</body>
+</html>

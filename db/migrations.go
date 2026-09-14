@@ -15,6 +15,8 @@ func (d *Database) migrate() error {
 	migrations := []string{
 		migrationV1,
 		migrationV2,
+		migrationV3,
+		migrationV4,
 	}
 
 	for i, m := range migrations {
@@ -103,4 +105,29 @@ func (d *Database) BeginTx() (*sql.Tx, error) {
 
 var migrationV2 = `
 ALTER TABLE task_lists ADD COLUMN last_reminded_date TEXT;
+`
+
+var migrationV3 = `
+ALTER TABLE tasks ADD COLUMN reminder_cron TEXT NOT NULL DEFAULT '';
+ALTER TABLE tasks ADD COLUMN reminder_at INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tasks ADD COLUMN last_reminded_at INTEGER NOT NULL DEFAULT 0;
+`
+
+var migrationV4 = `
+CREATE TABLE web_tokens (
+    token TEXT PRIMARY KEY,
+    jid TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE web_sessions (
+    id TEXT PRIMARY KEY,
+    jid TEXT NOT NULL,
+    csrf TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_web_tokens_expires ON web_tokens(expires_at);
+CREATE INDEX idx_web_sessions_expires ON web_sessions(expires_at);
 `

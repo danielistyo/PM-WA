@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "head"}}<title>Edit Task</title></head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>Edit Task</h1>
+      <a href="/lists/{{.List.ID}}">Back</a>
+    </div>
+
+    <form method="post" action="/lists/{{.List.ID}}/tasks/{{.Task.Position}}" class="card">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <label for="title">Title</label>
+      <input id="title" name="title" required maxlength="200" value="{{.Task.Title}}">
+
+      <label for="assign">Assignees (comma-separated phone numbers)</label>
+      <input id="assign" name="assign" required value="{{.AssigneeCSV}}">
+
+      <label for="deadline">Deadline (YYYY-MM-DD HH:MM)</label>
+      <input id="deadline" name="deadline" required value="{{.DeadlineText}}">
+
+      <label for="reminder">Reminder</label>
+      <input id="reminder" name="reminder" value="{{.ReminderText}}" placeholder="yes / no / every monday at 20:00 / 2026-07-01 09:00">
+
+      <div class="actions">
+        <button class="btn" type="submit">Save changes</button>
+        <a class="btn secondary" href="/lists/{{.List.ID}}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

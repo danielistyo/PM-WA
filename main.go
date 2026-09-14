@@ -16,6 +16,7 @@ import (
 	"pm-wa/db"
 	"pm-wa/reply"
 	"pm-wa/scheduler"
+	"pm-wa/web"
 )
 
 type App struct {
@@ -45,12 +46,22 @@ func main() {
 	app := &App{
 		client:       client,
 		db:           database,
-		cmdHandler:   cmd.NewHandler(client, database),
+		cmdHandler:   cmd.NewHandler(client, database, cfg.WebBaseURL),
 		replyHandler: reply.NewHandler(client, database),
 		scheduler:    scheduler.New(client, database, cfg.ScheduleTime),
 	}
 
 	client.WA.AddEventHandler(app.eventHandler)
+
+	if cfg.WebBaseURL != "" {
+		webServer := web.NewServer(database, client, cfg.WebBaseURL)
+		go func() {
+			slog.Info("starting web server", "addr", cfg.WebListenAddr)
+			if err := webServer.Start(cfg.WebListenAddr); err != nil {
+				slog.Error("web server stopped", "error", err)
+			}
+		}()
+	}
 
 	if err := client.Connect(); err != nil {
 		slog.Error("failed to connect", "error", err)

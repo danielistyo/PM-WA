@@ -6,15 +6,18 @@ import (
 )
 
 type Task struct {
-	ID         int64
-	TaskListID int64
-	Position   int
-	Title      string
-	Status     string
-	Deadline   int64
-	Reminder   bool
-	CreatedAt  int64
-	Assignees  []TaskAssignee
+	ID             int64
+	TaskListID     int64
+	Position       int
+	Title          string
+	Status         string
+	Deadline       int64
+	Reminder       bool
+	ReminderCron   string
+	ReminderAt     int64
+	LastRemindedAt int64
+	CreatedAt      int64
+	Assignees      []TaskAssignee
 }
 
 type TaskAssignee struct {
@@ -34,7 +37,7 @@ func (a TaskAssignee) Phone() string {
 	return jid
 }
 
-func (d *Database) CreateTask(taskListID int64, title string, deadline int64, reminder bool, assigneeJIDs []string) (*Task, error) {
+func (d *Database) CreateTask(taskListID int64, title string, deadline int64, reminder bool, reminderCron string, reminderAt int64, assigneeJIDs []string) (*Task, error) {
 	tx, err := d.db.Begin()
 	if err != nil {
 		return nil, err
@@ -53,8 +56,8 @@ func (d *Database) CreateTask(taskListID int64, title string, deadline int64, re
 	}
 
 	res, err := tx.Exec(
-		`INSERT INTO tasks (task_list_id, position, title, status, deadline, reminder, created_at) VALUES (?, ?, ?, 'todo', ?, ?, ?)`,
-		taskListID, position, title, deadline, reminderInt, now,
+		`INSERT INTO tasks (task_list_id, position, title, status, deadline, reminder, reminder_cron, reminder_at, last_reminded_at, created_at) VALUES (?, ?, ?, 'todo', ?, ?, ?, ?, 0, ?)`,
+		taskListID, position, title, deadline, reminderInt, reminderCron, reminderAt, now,
 	)
 	if err != nil {
 		return nil, err
@@ -73,20 +76,22 @@ func (d *Database) CreateTask(taskListID int64, title string, deadline int64, re
 	}
 
 	return &Task{
-		ID:         taskID,
-		TaskListID: taskListID,
-		Position:   position,
-		Title:      title,
-		Status:     "todo",
-		Deadline:   deadline,
-		Reminder:   reminder,
-		CreatedAt:  now,
+		ID:           taskID,
+		TaskListID:   taskListID,
+		Position:     position,
+		Title:        title,
+		Status:       "todo",
+		Deadline:     deadline,
+		Reminder:     reminder,
+		ReminderCron: reminderCron,
+		ReminderAt:   reminderAt,
+		CreatedAt:    now,
 	}, nil
 }
 
 func (d *Database) GetTasksByList(taskListID int64) ([]Task, error) {
 	rows, err := d.db.Query(
-		`SELECT id, task_list_id, position, title, status, deadline, reminder, created_at FROM tasks WHERE task_list_id = ? ORDER BY position`,
+		`SELECT id, task_list_id, position, title, status, deadline, reminder, reminder_cron, reminder_at, last_reminded_at, created_at FROM tasks WHERE task_list_id = ? ORDER BY position`,
 		taskListID,
 	)
 	if err != nil {
@@ -98,7 +103,7 @@ func (d *Database) GetTasksByList(taskListID int64) ([]Task, error) {
 	for rows.Next() {
 		var t Task
 		var rem int
-		rows.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &rem, &t.CreatedAt)
+		rows.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &rem, &t.ReminderCron, &t.ReminderAt, &t.LastRemindedAt, &t.CreatedAt)
 		t.Reminder = rem == 1
 		tasks = append(tasks, t)
 	}
@@ -140,6 +145,11 @@ func (d *Database) UpdateTaskStatus(taskListID int64, position int, status strin
 		`UPDATE tasks SET status = ? WHERE task_list_id = ? AND position = ?`,
 		status, taskListID, position,
 	)
+	return err
+}
+
+func (d *Database) UpdateTaskLastReminded(taskID int64, ts int64) error {
+	_, err := d.db.Exec(`UPDATE tasks SET last_reminded_at = ? WHERE id = ?`, ts, taskID)
 	return err
 }
 
@@ -202,12 +212,12 @@ func (d *Database) TaskExistsAtPosition(taskListID int64, position int) bool {
 
 func (d *Database) GetTaskAtPosition(taskListID int64, position int) (*Task, error) {
 	row := d.db.QueryRow(
-		`SELECT id, task_list_id, position, title, status, deadline, reminder, created_at FROM tasks WHERE task_list_id = ? AND position = ?`,
+		`SELECT id, task_list_id, position, title, status, deadline, reminder, reminder_cron, reminder_at, last_reminded_at, created_at FROM tasks WHERE task_list_id = ? AND position = ?`,
 		taskListID, position,
 	)
 	var t Task
 	var rem int
-	err := row.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &rem, &t.CreatedAt)
+	err := row.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &rem, &t.ReminderCron, &t.ReminderAt, &t.LastRemindedAt, &t.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

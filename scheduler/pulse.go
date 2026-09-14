@@ -42,22 +42,21 @@ func (s *Scheduler) Start() {
 		return
 	}
 
-	// Validate the cron expression before starting
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	if _, err := parser.Parse(s.scheduleTime); err != nil {
-		slog.Error("invalid SCHEDULE_TIME cron expression, scheduler not started", "expr", s.scheduleTime, "error", err)
-		return
+	// Validate the default schedule used for tasks without a custom reminder.
+	if _, err := cron.ParseStandard(s.scheduleTime); err != nil {
+		slog.Error("invalid SCHEDULE_TIME cron expression, tasks without a custom reminder will not fire", "expr", s.scheduleTime, "error", err)
 	}
 
 	loc, _ := time.LoadLocation("Asia/Jakarta")
 	s.cron = cron.New(cron.WithLocation(loc))
 
-	s.cron.AddFunc(s.scheduleTime, func() {
-		s.executeDailyPulse()
+	// Tick every minute and evaluate each task's own reminder schedule.
+	s.cron.AddFunc("* * * * *", func() {
+		s.tick(time.Now().In(gmt7))
 	})
 
 	s.cron.Start()
-	slog.Info("scheduler started", "schedule", s.scheduleTime)
+	slog.Info("scheduler started", "default_schedule", s.scheduleTime)
 }
 
 func (s *Scheduler) Stop() {
@@ -71,7 +70,9 @@ func (s *Scheduler) Stop() {
 	}
 }
 
-func (s *Scheduler) executeDailyPulse() {
+// tick runs once per minute and sends reminders for every task whose schedule
+// is due this minute. now must be in the GMT+7 zone.
+func (s *Scheduler) tick(now time.Time) {
 	ctx := context.Background()
 	activeLists, err := s.db.GetAllActiveLists()
 	if err != nil {
@@ -79,7 +80,8 @@ func (s *Scheduler) executeDailyPulse() {
 		return
 	}
 
-	today := time.Now().In(gmt7).Format("2006-01-02")
+	minuteStart := now.Truncate(time.Minute)
+	minuteUnix := minuteStart.Unix()
 
 	for _, list := range activeLists {
 		groupJID, err := types.ParseJID(list.GroupJID)
@@ -87,50 +89,58 @@ func (s *Scheduler) executeDailyPulse() {
 			continue
 		}
 
-		// Skip if a reminder was already sent today (WIB) — guards against duplicate
-		// sends on app restart or multiple Connected events.
-		if list.LastRemindedDate == today {
-			slog.Info("reminder already sent today, skipping", "list_id", list.ID, "date", today)
-			continue
-		}
-
-		s.refreshAssigneePresence(ctx, &list)
-
 		tasks, err := s.db.GetTasksByList(list.ID)
 		if err != nil {
 			continue
 		}
 
-		allDone := true
+		var dueTasks []db.Task
 		for _, t := range tasks {
-			if t.Status == "todo" {
-				allDone = false
-				break
+			if !t.Reminder || t.Status != "todo" {
+				continue
 			}
-		}
-		if allDone {
-			continue
-		}
-
-		var pulseTasks []db.Task
-		for _, t := range tasks {
-			if t.Reminder && t.Status == "todo" {
-				pulseTasks = append(pulseTasks, t)
+			if t.LastRemindedAt >= minuteUnix {
+				continue
+			}
+			if s.taskDue(t, minuteStart, minuteUnix) {
+				dueTasks = append(dueTasks, t)
 			}
 		}
 
-		if len(pulseTasks) == 0 {
+		if len(dueTasks) == 0 {
 			continue
 		}
 
-		now := time.Now().In(gmt7)
-		text, mentions := format.FormatDailyPulse(&list, pulseTasks, now)
+		s.refreshAssigneePresence(ctx, &list)
+
+		text, mentions := format.FormatDailyPulse(&list, dueTasks, now)
 		resp, err := s.client.SendGroupMessage(ctx, groupJID, text, mentions)
-		if err == nil {
-			s.db.SaveMessageMapping(resp.ID, list.ID, list.GroupJID)
-			s.db.UpdateLastRemindedDate(list.ID, today)
+		if err != nil {
+			continue
+		}
+		s.db.SaveMessageMapping(resp.ID, list.ID, list.GroupJID)
+		for _, t := range dueTasks {
+			s.db.UpdateTaskLastReminded(t.ID, minuteUnix)
 		}
 	}
+}
+
+// taskDue reports whether the task's reminder schedule fires during the minute
+// starting at minuteStart.
+func (s *Scheduler) taskDue(t db.Task, minuteStart time.Time, minuteUnix int64) bool {
+	if t.ReminderAt > 0 {
+		return t.ReminderAt-(t.ReminderAt%60) == minuteUnix
+	}
+
+	expr := t.ReminderCron
+	if expr == "" {
+		expr = s.scheduleTime
+	}
+	sched, err := cron.ParseStandard(expr)
+	if err != nil {
+		return false
+	}
+	return sched.Next(minuteStart.Add(-time.Second)).Equal(minuteStart)
 }
 
 func (s *Scheduler) handleBotKicked(ctx context.Context, groupJID types.JID) {

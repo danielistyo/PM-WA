@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var cache = {}; // jid -> array of strings (phones)
+  var cache = {}; // jid -> array of { phone: "...", name: "..." }
 
   function fetchMembers(jid, cb) {
     if (cache[jid]) {
@@ -65,7 +65,19 @@
         disp.textContent = 'Select assignees...';
         disp.style.color = 'var(--muted)';
       } else {
-        disp.textContent = selList.join(', ');
+        // Find names for selected if available
+        var dispNames = selList.map(function(phone) {
+          if (state.members) {
+            for (var i = 0; i < state.members.length; i++) {
+              if (state.members[i].phone === phone) {
+                var name = state.members[i].name;
+                return name === phone ? phone : name;
+              }
+            }
+          }
+          return phone;
+        });
+        disp.textContent = dispNames.join(', ');
         disp.style.color = 'var(--fg)';
       }
 
@@ -111,20 +123,26 @@
             emptyEl.textContent = 'No members found.';
             panel.appendChild(emptyEl);
           } else {
-            state.members.forEach(function(phone) {
+            state.members.forEach(function(member) {
               var btn = document.createElement('button');
               btn.type = 'button';
               btn.className = 'ap-opt';
-              if (state.selected[phone]) {
+              if (state.selected[member.phone]) {
                 btn.classList.add('selected');
               }
-              btn.textContent = phone;
+              // Label shows Name (Phone) if Name is different from Phone
+              if (member.name && member.name !== member.phone) {
+                btn.textContent = member.name + ' (' + member.phone + ')';
+              } else {
+                btn.textContent = member.phone;
+              }
+              
               btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                if (state.selected[phone]) {
-                  delete state.selected[phone];
+                if (state.selected[member.phone]) {
+                  delete state.selected[member.phone];
                 } else {
-                  state.selected[phone] = true;
+                  state.selected[member.phone] = true;
                 }
                 render();
               });

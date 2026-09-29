@@ -37,28 +37,44 @@ func (c *Client) IsBotInGroup(ctx context.Context, groupJID types.JID) (bool, er
 	return c.IsUserInGroup(ctx, groupJID, *c.WA.Store.ID)
 }
 
-func (c *Client) GetGroupPhoneMembers(ctx context.Context, groupJID types.JID) ([]string, error) {
+type MemberInfo struct {
+	Phone string `json:"phone"`
+	Name  string `json:"name"`
+}
+
+func (c *Client) GetGroupPhoneMembers(ctx context.Context, groupJID types.JID) ([]MemberInfo, error) {
 	groupInfo, err := c.WA.GetGroupInfo(ctx, groupJID)
 	if err != nil {
 		return nil, err
 	}
-	var phones []string
+	var members []MemberInfo
 	for _, p := range groupInfo.Participants {
-		// Prefer the Phone-based JID if it's available, otherwise fallback to the primary JID
-		// Note that non-LID JIDs are typically phone numbers. 
-		var user string
+		var userJID types.JID
 		if p.JID.Server != "lid" {
-			user = p.JID.ToNonAD().User
+			userJID = p.JID.ToNonAD()
 		} else if !p.PhoneNumber.IsEmpty() {
-			user = p.PhoneNumber.ToNonAD().User
+			userJID = p.PhoneNumber.ToNonAD()
 		} else {
-			// fallback for LID only but try to extract phone? In LID-only groups, they might not have phone numbers.
-			// But for now, we just skip LIDs that don't have phone numbers as we need phone numbers for assignments.
 			continue
 		}
-		phones = append(phones, user)
+		
+		phone := userJID.User
+		name := phone // fallback
+		
+		// Attempt to get contact info
+		if contact, err := c.WA.Store.Contacts.GetContact(ctx, userJID); err == nil && contact.Found {
+			if contact.FullName != "" {
+				name = contact.FullName
+			} else if contact.PushName != "" {
+				name = contact.PushName
+			} else if contact.BusinessName != "" {
+				name = contact.BusinessName
+			}
+		}
+		
+		members = append(members, MemberInfo{Phone: phone, Name: name})
 	}
-	return phones, nil
+	return members, nil
 }
 
 func (c *Client) GetGroupParticipantsEx(ctx context.Context, groupJID types.JID) (map[string]bool, bool, error) {

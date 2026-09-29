@@ -63,8 +63,8 @@
       <label for="assign">Assignees (comma-separated phone numbers)</label>
       <input id="assign" name="assign" placeholder="6281234567890, 6289876543210" required>
 
-      <label for="deadline">Deadline (YYYY-MM-DD HH:MM)</label>
-      <input id="deadline" name="deadline" placeholder="2026-07-01 17:00" required>
+      <label for="deadline">Deadline</label>
+      <input id="deadline" name="deadline" type="datetime-local" step="60" required>
 
       <label for="reminder">Reminder</label>
       {{template "reminder_field" ""}}
@@ -73,6 +73,16 @@
         <button class="btn" type="submit">Add task</button>
       </div>
     </form>
+    <script>
+    (function(){
+      var f = document.querySelector('form[action$="/tasks"]');
+      if (!f) return;
+      f.addEventListener('submit', function(){
+        var d = f.querySelector('[name="deadline"]');
+        if (d && d.value) d.value = d.value.replace('T', ' ');
+      });
+    })();
+    </script>
     {{end}}
   </div>
 </body>

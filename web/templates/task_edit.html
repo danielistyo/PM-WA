@@ -16,8 +16,8 @@
       <label for="assign">Assignees (comma-separated phone numbers)</label>
       <input id="assign" name="assign" required value="{{.AssigneeCSV}}">
 
-      <label for="deadline">Deadline (YYYY-MM-DD HH:MM)</label>
-      <input id="deadline" name="deadline" required value="{{.DeadlineText}}">
+      <label for="deadline">Deadline</label>
+      <input id="deadline" name="deadline" type="datetime-local" step="60" required value="{{.DeadlineText}}">
 
       <label for="reminder">Reminder</label>
       {{template "reminder_field" .ReminderText}}
@@ -27,6 +27,16 @@
         <a class="btn secondary" href="/lists/{{.List.ID}}">Cancel</a>
       </div>
     </form>
+    <script>
+    (function(){
+      var d = document.querySelector('[name="deadline"]');
+      if (d && d.value) d.value = d.value.replace(' ', 'T');
+      var f = d && d.closest('form');
+      if (f) f.addEventListener('submit', function(){
+        if (d.value) d.value = d.value.replace('T', ' ');
+      });
+    })();
+    </script>
   </div>
 </body>
 </html>

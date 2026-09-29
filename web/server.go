@@ -79,6 +79,9 @@ func (s *Server) Start(addr string) error {
 	mux.HandleFunc("POST /lists/{id}/tasks/{pos}", s.requireSession(s.handleUpdateTask))
 	mux.HandleFunc("POST /lists/{id}/tasks/{pos}/delete", s.requireSession(s.handleDeleteTask))
 
+	// API
+	mux.HandleFunc("GET /api/groups/{jid}/members", s.requireSession(s.handleGroupMembers))
+
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,

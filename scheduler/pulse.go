@@ -51,6 +51,7 @@ func (s *Scheduler) Start() {
 	s.cron = cron.New(cron.WithLocation(loc))
 
 	// Tick every minute and evaluate each task's own reminder schedule.
+	// TODO: Consider using a more efficient approach, such as scheduling each task's next reminder individually, to avoid iterating over all tasks every minute.
 	s.cron.AddFunc("* * * * *", func() {
 		s.tick(time.Now().In(gmt7))
 	})

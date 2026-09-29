@@ -37,16 +37,28 @@ func (c *Client) IsBotInGroup(ctx context.Context, groupJID types.JID) (bool, er
 	return c.IsUserInGroup(ctx, groupJID, *c.WA.Store.ID)
 }
 
-func (c *Client) GetGroupParticipants(ctx context.Context, groupJID types.JID) (map[string]bool, error) {
+func (c *Client) GetGroupPhoneMembers(ctx context.Context, groupJID types.JID) ([]string, error) {
 	groupInfo, err := c.WA.GetGroupInfo(ctx, groupJID)
 	if err != nil {
 		return nil, err
 	}
-	participants := make(map[string]bool)
+	var phones []string
 	for _, p := range groupInfo.Participants {
-		participants[p.JID.ToNonAD().User] = true
+		// Prefer the Phone-based JID if it's available, otherwise fallback to the primary JID
+		// Note that non-LID JIDs are typically phone numbers. 
+		var user string
+		if p.JID.Server != "lid" {
+			user = p.JID.ToNonAD().User
+		} else if !p.PhoneNumber.IsEmpty() {
+			user = p.PhoneNumber.ToNonAD().User
+		} else {
+			// fallback for LID only but try to extract phone? In LID-only groups, they might not have phone numbers.
+			// But for now, we just skip LIDs that don't have phone numbers as we need phone numbers for assignments.
+			continue
+		}
+		phones = append(phones, user)
 	}
-	return participants, nil
+	return phones, nil
 }
 
 func (c *Client) GetGroupParticipantsEx(ctx context.Context, groupJID types.JID) (map[string]bool, bool, error) {

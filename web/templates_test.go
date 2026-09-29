@@ -111,7 +111,7 @@ func TestEmbeddedStaticListing(t *testing.T) {
 	for _, f := range files {
 		want[f.Name()] = struct{}{}
 	}
-	for _, name := range []string{"cronstrue.min.js", "reminder-picker.js", "reminder-picker.css"} {
+	for _, name := range []string{"cronstrue.min.js", "reminder-picker.js", "reminder-picker.css", "assignee-picker.js", "assignee-picker.css"} {
 		if _, ok := want[name]; !ok {
 			t.Errorf("expected %s to be embedded in staticFS", name)
 		} else {

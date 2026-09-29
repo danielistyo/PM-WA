@@ -1,0 +1,96 @@
+/* ---- PM-WA assignee picker ---- */
+.ap-wrap {
+  position: relative;
+  margin: 2px 0 12px;
+}
+.ap-field {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  min-height: 40px;
+}
+.ap-field:hover {
+  border-color: var(--accent);
+}
+.ap-display-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ap-chevron {
+  color: var(--muted);
+  font-size: .8rem;
+  flex-shrink: 0;
+}
+.ap-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .12);
+  padding: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  display: none;
+}
+.ap-panel.open {
+  display: block;
+}
+.ap-loading {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+.ap-opt {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  border-radius: 6px;
+  color: var(--fg);
+  font-family: inherit;
+  gap: 8px;
+}
+.ap-opt:hover {
+  background: #eef1f4;
+}
+.ap-opt::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.ap-opt.selected::before {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+  background-size: 12px;
+  background-repeat: no-repeat;
+  background-position: center;
+}

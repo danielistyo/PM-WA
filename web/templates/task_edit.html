@@ -13,8 +13,10 @@
       <label for="title">Title</label>
       <input id="title" name="title" required maxlength="200" value="{{.Task.Title}}">
 
-      <label for="assign">Assignees (comma-separated phone numbers)</label>
-      <input id="assign" name="assign" required value="{{.AssigneeCSV}}">
+      <label for="assign">Assignees</label>
+      <div class="ap-wrap" data-group="{{.List.GroupJID}}" data-selected="{{.AssigneeCSV}}">
+        <!-- Assignee picker widget will be rendered here -->
+      </div>
 
       <label for="deadline">Deadline</label>
       <input id="deadline" name="deadline" type="datetime-local" step="60" required value="{{.DeadlineText}}">

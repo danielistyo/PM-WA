@@ -210,7 +210,7 @@ func (s *Server) handleEditTask(w http.ResponseWriter, r *http.Request, sess ses
 		Task:         *task,
 		AssigneeCSV:  assigneeCSV(task.Assignees),
 		ReminderText: reminderToText(*task),
-		DeadlineText: time.Unix(task.Deadline, 0).In(gmt7).Format("2006-01-02 15:04"),
+		DeadlineText: time.Unix(task.Deadline, 0).In(gmt7).Format("2006-01-02T15:04"),
 	})
 }
 
@@ -269,9 +269,9 @@ func (s *Server) parseTaskForm(r *http.Request, list *db.TaskList) (title string
 		return "", 0, spec, nil, "Title, assignees, and deadline are required."
 	}
 
-	d, err := time.ParseInLocation("2006-01-02 15:04", deadlineStr, gmt7)
+	d, err := time.ParseInLocation("2006-01-02T15:04", deadlineStr, gmt7)
 	if err != nil {
-		return "", 0, spec, nil, "Invalid deadline format. Use YYYY-MM-DD HH:MM."
+		return "", 0, spec, nil, "Invalid deadline format. Use YYYY-MM-DDTHH:MM."
 	}
 	deadline = d.Unix()
 

@@ -60,7 +60,7 @@ func TestTemplatesParseAndExecute(t *testing.T) {
 		{"task_edit.html", editTaskView{CSRF: "tok", List: list, Task: task,
 			AssigneeCSV:  "6281",
 			ReminderText: "0 20 * * 1",
-			DeadlineText: time.Unix(task.Deadline, 0).In(gmt7).Format("2006-01-02 15:04")}},
+			DeadlineText: time.Unix(task.Deadline, 0).In(gmt7).Format("2006-01-02T15:04")}},
 		{"message.html", map[string]string{"Title": "t", "Body": "b"}},
 	}
 

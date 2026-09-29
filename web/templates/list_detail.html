@@ -73,16 +73,6 @@
         <button class="btn" type="submit">Add task</button>
       </div>
     </form>
-    <script>
-    (function(){
-      var f = document.querySelector('form[action$="/tasks"]');
-      if (!f) return;
-      f.addEventListener('submit', function(){
-        var d = f.querySelector('[name="deadline"]');
-        if (d && d.value) d.value = d.value.replace('T', ' ');
-      });
-    })();
-    </script>
     {{end}}
   </div>
 </body>

@@ -27,16 +27,6 @@
         <a class="btn secondary" href="/lists/{{.List.ID}}">Cancel</a>
       </div>
     </form>
-    <script>
-    (function(){
-      var d = document.querySelector('[name="deadline"]');
-      if (d && d.value) d.value = d.value.replace(' ', 'T');
-      var f = d && d.closest('form');
-      if (f) f.addEventListener('submit', function(){
-        if (d.value) d.value = d.value.replace('T', ' ');
-      });
-    })();
-    </script>
   </div>
 </body>
 </html>

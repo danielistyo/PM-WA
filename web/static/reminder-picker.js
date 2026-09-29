@@ -423,6 +423,7 @@
       minutePrefix.textContent = state.period === 'hour' ? 'at' : ':';
       minuteSuffix.hidden = state.period !== 'hour';
       customBtn.classList.toggle('active', state.custom);
+      customBtn.textContent = state.custom ? 'Selector' : 'Cron expression';
       customWrap.hidden = !state.custom;
       row.hidden = state.custom;
       Object.keys(multis).forEach(function (k) { multis[k].render(); });
@@ -541,8 +542,10 @@
             state.cron = state.customValue;
           } else {
             // Valid expression the multi-selects cannot express (e.g. */15):
-            // keep editing in free-text mode instead of silently changing it.
-            state.custom = true;
+            // discard and revert to the selector-driven cron.
+            state.custom = false;
+            state.cronError = false;
+            updateCron();
           }
         } else {
           // Invalid text is discarded and the picker reverts to what the

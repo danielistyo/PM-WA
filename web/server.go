@@ -30,17 +30,24 @@ type Server struct {
 	tmpl    *template.Template
 }
 
-func NewServer(database *db.Database, client *bot.Client, baseURL string) *Server {
-	funcMap := template.FuncMap{
+// templateFuncMap is the single source of truth for template functions, shared
+// by the production server and the test template parser.
+func templateFuncMap() template.FuncMap {
+	return template.FuncMap{
 		"fmtTime": func(unix int64) string {
 			if unix == 0 {
 				return ""
 			}
 			return time.Unix(unix, 0).In(gmt7).Format("2006-01-02 15:04")
 		},
+		// Same human-readable text as the edit-task page.
+		"reminderText": reminderToText,
 	}
+}
+
+func NewServer(database *db.Database, client *bot.Client, baseURL string) *Server {
 	tmpl := template.Must(
-		template.New("").Funcs(funcMap).ParseFS(templatesFS, "templates/*.html"),
+		template.New("").Funcs(templateFuncMap()).ParseFS(templatesFS, "templates/*.html"),
 	)
 	return &Server{
 		db:      database,

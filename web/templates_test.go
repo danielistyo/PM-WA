@@ -14,19 +14,11 @@ import (
 )
 
 // newTestTemplate parses the embedded templates exactly like the production
-// server so changes to templates (including the reminder picker partial) are
-// caught by the test suite.
+// server (same templateFuncMap) so changes to templates (including the
+// reminder picker partial) are caught by the test suite.
 func newTestTemplate(t *testing.T) *template.Template {
 	t.Helper()
-	fm := template.FuncMap{
-		"fmtTime": func(unix int64) string {
-			if unix == 0 {
-				return ""
-			}
-			return time.Unix(unix, 0).In(gmt7).Format("2006-01-02 15:04")
-		},
-	}
-	tmpl, err := template.New("").Funcs(fm).ParseFS(templatesFS, "templates/*.html")
+	tmpl, err := template.New("").Funcs(templateFuncMap()).ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		t.Fatalf("parse templates: %v", err)
 	}
@@ -72,6 +64,78 @@ func TestTemplatesParseAndExecute(t *testing.T) {
 			}
 			if buf.Len() == 0 {
 				t.Fatalf("execute %s produced empty output", tc.name)
+			}
+		})
+	}
+}
+
+func TestListDetailReminderDisplay(t *testing.T) {
+	tmpl := newTestTemplate(t)
+
+	list := db.TaskList{ID: 1, Name: "Team", GroupJID: "g", AdminJID: "6281@s.whatsapp.net"}
+	deadline := time.Now().Unix()
+
+	cases := []struct {
+		name       string
+		reminder   bool
+		reminderAt int64
+		cron       string
+		wantText   string
+		wantAbsent string
+	}{
+		{
+			name:       "reminder off shows nothing",
+			reminder:   false,
+			wantText:   "",
+			wantAbsent: "reminder:",
+		},
+		{
+			name:       "reminder at deadline shows yes",
+			reminder:   true,
+			wantText:   `<span data-cron-humanize>yes</span>`,
+			wantAbsent: "",
+		},
+		{
+			name:       "recurring reminder shows cron for client-side humanization",
+			reminder:   true,
+			cron:       "0 20 * * 1",
+			wantText:   `<span data-cron-humanize>0 20 * * 1</span>`,
+			wantAbsent: "",
+		},
+		{
+			name:       "once-at reminder shows formatted time",
+			reminder:   true,
+			reminderAt: time.Date(2026, 3, 15, 9, 30, 0, 0, gmt7).Unix(),
+			wantText:   `<span data-cron-humanize>2026-03-15 09:30</span>`,
+			wantAbsent: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := db.Task{
+				ID:           1,
+				TaskListID:   list.ID,
+				Position:     1,
+				Title:        "Ship it",
+				Status:       "todo",
+				Deadline:     deadline,
+				Reminder:     tc.reminder,
+				ReminderAt:   tc.reminderAt,
+				ReminderCron: tc.cron,
+			}
+			var buf bytes.Buffer
+			if err := tmpl.ExecuteTemplate(&buf, "list_detail.html", listDetailView{
+				CSRF: "tok", List: list, GroupName: "g", Tasks: []db.Task{task},
+			}); err != nil {
+				t.Fatalf("execute list_detail.html: %v", err)
+			}
+			out := buf.String()
+			if tc.wantText != "" && !strings.Contains(out, tc.wantText) {
+				t.Errorf("expected %q in rendered list detail, got:\n%s", tc.wantText, out)
+			}
+			if tc.wantAbsent != "" && strings.Contains(out, tc.wantAbsent) {
+				t.Errorf("expected %q to be absent in rendered list detail", tc.wantAbsent)
 			}
 		})
 	}

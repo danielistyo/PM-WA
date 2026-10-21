@@ -13,6 +13,8 @@
  *     the cron builder: "Every [period]" with contextual MULTI-select fields
  *     (month, month-day, weekday, hour, minute) that appear based on the
  *     selected period, plus a "Cron expression" free-text toggle.
+ *   - Read-only displays (e.g. the reminder shown on the list detail page)
+ *     can opt into the same humanization with data-cron-humanize.
  *
  * Submitted values (single hidden "reminder" input):
  *   No reminder -> "no"
@@ -614,14 +616,30 @@
     renderAll();
   }
 
+  // Humanize cron-looking text inside elements marked with
+  // data-cron-humanize (e.g. the reminder readout on the list detail page).
+  // Non-cron values ("yes", "no", absolute dates) are left untouched.
+  function humanizeAll(root) {
+    if (typeof document === 'undefined') return;
+    var els = (root || document).querySelectorAll('[data-cron-humanize]');
+    for (var i = 0; i < els.length; i++) {
+      var value = (els[i].textContent || '').trim();
+      if (!value || !isValidCron5(value)) continue;
+      var human = humanize(value);
+      if (human) els[i].textContent = human;
+    }
+  }
+
   function initAll() {
     if (typeof document === 'undefined') return;
     var roots = document.querySelectorAll('[data-reminder-field]');
     for (var i = 0; i < roots.length; i++) setupWidget(roots[i]);
+    humanizeAll();
   }
 
   return {
     initAll: initAll,
+    humanizeAll: humanizeAll,
     humanize: humanize,
     isValidCron5: isValidCron5,
     parseCronParts: parseCronParts,

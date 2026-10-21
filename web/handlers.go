@@ -354,13 +354,23 @@ func (s *Server) memberGroups(ctx context.Context, jid string) []groupOption {
 	if err != nil {
 		return nil
 	}
+	userJID, err := types.ParseJID(jid)
+	if err != nil {
+		return nil
+	}
+
+	// Single RPC for every group's membership instead of one GetGroupInfo per group.
+	rpcCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	member, err := s.client.GetMemberGroups(rpcCtx, userJID)
+	if err != nil {
+		slog.Error("GetMemberGroups failed", "error", err)
+		return nil
+	}
+
 	var opts []groupOption
 	for _, g := range groups {
-		parsed, err := types.ParseJID(g.JID)
-		if err != nil {
-			continue
-		}
-		if s.isMember(ctx, parsed, jid) {
+		if member[g.JID] {
 			opts = append(opts, groupOption{JID: g.JID, Name: g.Name})
 		}
 	}

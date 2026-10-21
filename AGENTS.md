@@ -1,0 +1,58 @@
+# AGENTS.md
+
+Instructions for AI agents working in this repository (PM-WA — a WhatsApp task-list bot with a Go web UI, SQLite storage, and the whatsmeow client).
+
+## Performance first: always produce optimized code
+
+This app talks to live WhatsApp servers over the network. Latency bugs lock up the UI just like code bugs do. Every change must follow these rules:
+
+### Never put network calls inside loops
+
+- Before writing a loop, check whether any call inside it performs RPC / network / I/O. If it does, find a **batch API** that does it in one call instead.
+- Precedent: `bot.MemberGroupJIDs` + `GetMemberGroups` (`bot/group.go`) replaced N per-group `GetGroupInfo` calls with a single `GetJoinedGroups` call. Follow that shape for anything similar.
+- Prefer whitelisting data fetched once (e.g., joined groups with participants) over re-fetching per item, then compute locally with a pure function.
+
+### Prefer local, synced data over live RPCs
+
+- Read-heavy UI data that rarely changes (group names, membership) belongs in SQLite (`wa_groups`, `task_lists`) and is kept fresh by real-time events (see `main.go` upserts). Render pages from the DB; use RPC only for correctness-critical checks (e.g., validating a submitted form value).
+- Filter/intersect in memory against already-loaded data instead of round-tripping.
+
+### Always bound outbound calls with a context deadline
+
+- Any handler that triggers an RPC must wrap the request context with `context.WithTimeout` and fail fast (a few seconds max, well under the server's `WriteTimeout` = 15s in `web/server.go`).
+- On RPC failure: log with `slog.Error`, render the page degraded (empty options / friendly error), never hang.
+
+### Keep behavior parity when optimizing
+
+- When replacing a slow path, preserve its exact semantics (including quirks like the LID-only optimistic-membership rule) unless the plan explicitly says otherwise. Port any `slog.Warn` that documented behavior.
+- State in the commit/PR that semantics are unchanged.
+
+### Database hygiene
+
+- SQLite: no N+1 queries; fetch siblings in one query and join in memory.
+- Use transactions for multi-statement writes (see `db/web.go` `ReplaceTaskAssignees`).
+
+## General conventions
+
+- Go 1.21+ style: `log/slog` for logging, errors returned as `error`, no panics in library code.
+- Keep handlers thin: `web/handlers.go` orchestrates, `bot` wraps whatsmeow, `db` owns SQL, `format` owns message rendering.
+- Don't add fields or helpers that duplicate something that already exists — search first (`db/`, `bot/`, `cmd/`) and reuse.
+- Store times as Unix seconds (int64); user-facing parsing/formatting uses the `gmt7` zone (`time.FixedZone("GMT+7", ...)`).
+
+## Testing
+
+- Every new exported function — especially pure helpers — ships with table-driven unit tests in an external `X_test` package next to the code (see `bot/group_test.go`).
+- Cover: success, every error path, boundaries (nil/empty/zero/unparseable inputs).
+- No generated mock infrastructure exists for `*bot.Client` / `*db.Database` (concrete structs); design logic as pure functions over plain inputs so it is testable without mocks.
+
+## Verification before finishing
+
+Run and report actual results (never claim a pass you didn't observe):
+
+```sh
+go build ./...
+go vet ./...
+go test ./...
+```
+
+There is no Makefile or separate lint target; `go vet` is the lint gate. Manual checks requiring a live WhatsApp session must be flagged as manual, not implied to pass.

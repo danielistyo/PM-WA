@@ -12,7 +12,7 @@ func FormatDailyPulse(list *db.TaskList, pulseTasks []db.Task, now time.Time) (s
 	var b strings.Builder
 	var mentions []string
 
-	b.WriteString("⏰ Daily Reminder\n")
+	b.WriteString("⏰ Reminder\n")
 	b.WriteString(fmt.Sprintf("ID: %d\n", list.ID))
 	b.WriteString(fmt.Sprintf("Title: %s\n\n", list.Name))
 

@@ -100,6 +100,51 @@ func (c *Client) GetGroupParticipantsEx(ctx context.Context, groupJID types.JID)
 	return participants, hasPhoneJIDs, nil
 }
 
+// MemberGroupJIDs computes the set of group JIDs (as strings) in which userJID is a
+// participant, from pre-fetched group infos. Groups whose participants are LID-only
+// (no phone-based JIDs available) are treated optimistically as membership matches,
+// mirroring IsUserInGroup.
+func MemberGroupJIDs(groups []types.GroupInfo, userJID types.JID) map[string]bool {
+	member := make(map[string]bool, len(groups))
+	target := userJID.ToNonAD().User
+	if target == "" {
+		return member
+	}
+	for _, g := range groups {
+		hasLIDOnly := true
+		matched := false
+		for _, p := range g.Participants {
+			if p.JID.Server != "lid" {
+				hasLIDOnly = false
+			}
+			if p.JID.ToNonAD().User == target {
+				matched = true
+			}
+			if !p.PhoneNumber.IsEmpty() && p.PhoneNumber.ToNonAD().User == target {
+				matched = true
+			}
+		}
+		if matched {
+			member[g.JID.String()] = true
+		} else if hasLIDOnly {
+			slog.Warn("group uses LID-only participants, skipping membership check", "group", g.JID.String())
+			member[g.JID.String()] = true
+		}
+	}
+	return member
+}
+
+// GetMemberGroups fetches all joined groups of the bot in a single RPC and returns the
+// set of group JIDs (as strings) where userJID is a participant. Use this instead of
+// calling IsUserInGroup once per group.
+func (c *Client) GetMemberGroups(ctx context.Context, userJID types.JID) (map[string]bool, error) {
+	groups, err := c.GetJoinedGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return MemberGroupJIDs(groups, userJID), nil
+}
+
 func (c *Client) GetJoinedGroups(ctx context.Context) ([]types.GroupInfo, error) {
 	groups, err := c.WA.GetJoinedGroups(ctx)
 	if err != nil {

@@ -103,14 +103,15 @@ func (d *Database) GetAllGroups() ([]WAGroup, error) {
 	return groups, nil
 }
 
-func (d *Database) UpdateTaskFields(taskID int64, title string, deadline int64, reminder bool, reminderCron string, reminderAt int64) error {
-	reminderInt := 0
-	if reminder {
-		reminderInt = 1
-	}
+// UpdateTaskFields rewrites a task's core fields. last_reminded_at is reset to
+// 0 so a (possibly new) one-shot reminder — "Once at" or at-task-deadline —
+// re-arms after an edit. reminderMode must be one of the Mode* constants;
+// normalizeReminder zeroes the value columns that don't belong to it.
+func (d *Database) UpdateTaskFields(taskID int64, title string, deadline int64, reminderMode string, reminderCron string, reminderAt int64) error {
+	reminderCron, reminderAt = normalizeReminder(reminderMode, reminderCron, reminderAt)
 	_, err := d.db.Exec(
-		`UPDATE tasks SET title = ?, deadline = ?, reminder = ?, reminder_cron = ?, reminder_at = ? WHERE id = ?`,
-		title, deadline, reminderInt, reminderCron, reminderAt, taskID,
+		`UPDATE tasks SET title = ?, deadline = ?, reminder_mode = ?, reminder_cron = ?, reminder_at = ?, last_reminded_at = 0 WHERE id = ?`,
+		title, deadline, reminderMode, reminderCron, reminderAt, taskID,
 	)
 	return err
 }

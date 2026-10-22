@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"go.mau.fi/whatsmeow/types"
+
+	"pm-wa/db"
 )
 
 func (h *Handler) listTasks(ctx context.Context, senderJID types.JID, fields map[string]string) {
@@ -82,7 +84,7 @@ func (h *Handler) listTasks(ctx context.Context, senderJID types.JID, fields map
 		}
 		deadline := time.Unix(t.Deadline, 0).In(gmt7).Format("2006-01-02 15:04")
 		reminderFlag := "yes"
-		if !t.Reminder {
+		if t.ReminderMode == db.ModeNone {
 			reminderFlag = "no"
 		}
 		var assignees []string

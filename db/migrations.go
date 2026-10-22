@@ -17,6 +17,7 @@ func (d *Database) migrate() error {
 		migrationV2,
 		migrationV3,
 		migrationV4,
+		migrationV5,
 	}
 
 	for i, m := range migrations {
@@ -130,4 +131,24 @@ CREATE TABLE web_sessions (
 
 CREATE INDEX idx_web_tokens_expires ON web_tokens(expires_at);
 CREATE INDEX idx_web_sessions_expires ON web_sessions(expires_at);
+`
+
+// migrationV5 replaces the sentinel encoding of the reminder state (reminder
+// bool + zero-valued reminder_cron/reminder_at) with an explicit discriminator
+// column. The backfill maps rows to the same behavior taskDue used to decode:
+//
+//	reminder=0 -> none, reminder_at>0 -> at, reminder_cron!='' -> cron,
+//	otherwise -> deadline (reminder=yes).
+var migrationV5 = `
+ALTER TABLE tasks ADD COLUMN reminder_mode TEXT NOT NULL DEFAULT 'none';
+
+UPDATE tasks SET reminder_mode =
+  CASE
+    WHEN reminder = 0        THEN 'none'
+    WHEN reminder_at > 0     THEN 'at'
+    WHEN reminder_cron != '' THEN 'cron'
+    ELSE                          'deadline'
+  END;
+
+ALTER TABLE tasks DROP COLUMN reminder;
 `

@@ -36,7 +36,7 @@ func TestTemplatesParseAndExecute(t *testing.T) {
 		Title:        "Ship it",
 		Status:       "todo",
 		Deadline:     time.Now().Unix(),
-		Reminder:     true,
+		ReminderMode: db.ModeCron,
 		ReminderCron: "0 20 * * 1",
 		Assignees:    []db.TaskAssignee{{ID: 1, TaskID: 1, AssigneeJID: "6281@s.whatsapp.net"}},
 	}
@@ -76,38 +76,38 @@ func TestListDetailReminderDisplay(t *testing.T) {
 	deadline := time.Now().Unix()
 
 	cases := []struct {
-		name       string
-		reminder   bool
-		reminderAt int64
-		cron       string
-		wantText   string
-		wantAbsent string
+		name         string
+		reminderMode string
+		reminderAt   int64
+		cron         string
+		wantText     string
+		wantAbsent   string
 	}{
 		{
-			name:       "reminder off shows nothing",
-			reminder:   false,
-			wantText:   "",
-			wantAbsent: "reminder:",
+			name:         "reminder off shows nothing",
+			reminderMode: db.ModeNone,
+			wantText:     "",
+			wantAbsent:   "reminder:",
 		},
 		{
-			name:       "reminder at deadline shows yes",
-			reminder:   true,
-			wantText:   `<span data-cron-humanize>yes</span>`,
-			wantAbsent: "",
+			name:         "reminder at deadline shows yes",
+			reminderMode: db.ModeDeadline,
+			wantText:     `<span data-cron-humanize>yes</span>`,
+			wantAbsent:   "",
 		},
 		{
-			name:       "recurring reminder shows cron for client-side humanization",
-			reminder:   true,
-			cron:       "0 20 * * 1",
-			wantText:   `<span data-cron-humanize>0 20 * * 1</span>`,
-			wantAbsent: "",
+			name:         "recurring reminder shows cron for client-side humanization",
+			reminderMode: db.ModeCron,
+			cron:         "0 20 * * 1",
+			wantText:     `<span data-cron-humanize>0 20 * * 1</span>`,
+			wantAbsent:   "",
 		},
 		{
-			name:       "once-at reminder shows formatted time",
-			reminder:   true,
-			reminderAt: time.Date(2026, 3, 15, 9, 30, 0, 0, gmt7).Unix(),
-			wantText:   `<span data-cron-humanize>2026-03-15 09:30</span>`,
-			wantAbsent: "",
+			name:         "once-at reminder shows formatted time",
+			reminderMode: db.ModeAt,
+			reminderAt:   time.Date(2026, 3, 15, 9, 30, 0, 0, gmt7).Unix(),
+			wantText:     `<span data-cron-humanize>2026-03-15 09:30</span>`,
+			wantAbsent:   "",
 		},
 	}
 
@@ -120,7 +120,7 @@ func TestListDetailReminderDisplay(t *testing.T) {
 				Title:        "Ship it",
 				Status:       "todo",
 				Deadline:     deadline,
-				Reminder:     tc.reminder,
+				ReminderMode: tc.reminderMode,
 				ReminderAt:   tc.reminderAt,
 				ReminderCron: tc.cron,
 			}

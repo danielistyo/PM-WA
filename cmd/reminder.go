@@ -9,17 +9,33 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
+
+	"pm-wa/db"
 )
 
 // ReminderSpec is the parsed result of a task's reminder field.
 //   - Enabled=false  -> task is excluded from reminders.
 //   - Cron!=""       -> recurring reminder driven by a 5-field cron expression.
 //   - At>0           -> one-time reminder at a specific unix timestamp.
-//   - Cron=="" && At==0 -> use the scheduler's default schedule.
+//   - Cron=="" && At==0 -> one-time reminder at the task deadline.
 type ReminderSpec struct {
 	Enabled bool
 	Cron    string
 	At      int64
+}
+
+// Mode maps the parsed spec onto the task's reminder_mode column.
+func (s ReminderSpec) Mode() string {
+	switch {
+	case !s.Enabled:
+		return db.ModeNone
+	case s.At > 0:
+		return db.ModeAt
+	case s.Cron != "":
+		return db.ModeCron
+	default:
+		return db.ModeDeadline
+	}
 }
 
 var reminderUsage = "Invalid reminder. Use one of:\n" +

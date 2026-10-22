@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+// Reminder modes stored in tasks.reminder_mode.
+const (
+	ModeNone     = "none"     // reminders disabled
+	ModeDeadline = "deadline" // one-shot reminder at the task deadline
+	ModeAt       = "at"       // one-shot reminder at ReminderAt
+	ModeCron     = "cron"     // recurring reminder driven by ReminderCron
+)
+
 type Task struct {
 	ID             int64
 	TaskListID     int64
@@ -12,9 +20,9 @@ type Task struct {
 	Title          string
 	Status         string
 	Deadline       int64
-	Reminder       bool
-	ReminderCron   string
-	ReminderAt     int64
+	ReminderMode   string
+	ReminderCron   string // set for ModeCron
+	ReminderAt     int64  // set for ModeAt
 	LastRemindedAt int64
 	CreatedAt      int64
 	Assignees      []TaskAssignee
@@ -37,7 +45,22 @@ func (a TaskAssignee) Phone() string {
 	return jid
 }
 
-func (d *Database) CreateTask(taskListID int64, title string, deadline int64, reminder bool, reminderCron string, reminderAt int64, assigneeJIDs []string) (*Task, error) {
+// normalizeReminder zeroes the value columns that don't belong to the mode so
+// contradictory states (e.g. a cron expression on an 'at' task) can never be
+// stored or read back.
+func normalizeReminder(mode string, cron string, at int64) (string, int64) {
+	switch mode {
+	case ModeAt:
+		return "", at
+	case ModeCron:
+		return cron, 0
+	default:
+		return "", 0
+	}
+}
+
+func (d *Database) CreateTask(taskListID int64, title string, deadline int64, reminderMode string, reminderCron string, reminderAt int64, assigneeJIDs []string) (*Task, error) {
+	reminderCron, reminderAt = normalizeReminder(reminderMode, reminderCron, reminderAt)
 	tx, err := d.db.Begin()
 	if err != nil {
 		return nil, err
@@ -50,14 +73,10 @@ func (d *Database) CreateTask(taskListID int64, title string, deadline int64, re
 	position := maxPos + 1
 
 	now := time.Now().Unix()
-	reminderInt := 0
-	if reminder {
-		reminderInt = 1
-	}
 
 	res, err := tx.Exec(
-		`INSERT INTO tasks (task_list_id, position, title, status, deadline, reminder, reminder_cron, reminder_at, last_reminded_at, created_at) VALUES (?, ?, ?, 'todo', ?, ?, ?, ?, 0, ?)`,
-		taskListID, position, title, deadline, reminderInt, reminderCron, reminderAt, now,
+		`INSERT INTO tasks (task_list_id, position, title, status, deadline, reminder_mode, reminder_cron, reminder_at, last_reminded_at, created_at) VALUES (?, ?, ?, 'todo', ?, ?, ?, ?, 0, ?)`,
+		taskListID, position, title, deadline, reminderMode, reminderCron, reminderAt, now,
 	)
 	if err != nil {
 		return nil, err
@@ -82,7 +101,7 @@ func (d *Database) CreateTask(taskListID int64, title string, deadline int64, re
 		Title:        title,
 		Status:       "todo",
 		Deadline:     deadline,
-		Reminder:     reminder,
+		ReminderMode: reminderMode,
 		ReminderCron: reminderCron,
 		ReminderAt:   reminderAt,
 		CreatedAt:    now,
@@ -91,7 +110,7 @@ func (d *Database) CreateTask(taskListID int64, title string, deadline int64, re
 
 func (d *Database) GetTasksByList(taskListID int64) ([]Task, error) {
 	rows, err := d.db.Query(
-		`SELECT id, task_list_id, position, title, status, deadline, reminder, reminder_cron, reminder_at, last_reminded_at, created_at FROM tasks WHERE task_list_id = ? ORDER BY position`,
+		`SELECT id, task_list_id, position, title, status, deadline, reminder_mode, reminder_cron, reminder_at, last_reminded_at, created_at FROM tasks WHERE task_list_id = ? ORDER BY position`,
 		taskListID,
 	)
 	if err != nil {
@@ -102,9 +121,7 @@ func (d *Database) GetTasksByList(taskListID int64) ([]Task, error) {
 	var tasks []Task
 	for rows.Next() {
 		var t Task
-		var rem int
-		rows.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &rem, &t.ReminderCron, &t.ReminderAt, &t.LastRemindedAt, &t.CreatedAt)
-		t.Reminder = rem == 1
+		rows.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &t.ReminderMode, &t.ReminderCron, &t.ReminderAt, &t.LastRemindedAt, &t.CreatedAt)
 		tasks = append(tasks, t)
 	}
 
@@ -212,23 +229,21 @@ func (d *Database) TaskExistsAtPosition(taskListID int64, position int) bool {
 
 func (d *Database) GetTaskAtPosition(taskListID int64, position int) (*Task, error) {
 	row := d.db.QueryRow(
-		`SELECT id, task_list_id, position, title, status, deadline, reminder, reminder_cron, reminder_at, last_reminded_at, created_at FROM tasks WHERE task_list_id = ? AND position = ?`,
+		`SELECT id, task_list_id, position, title, status, deadline, reminder_mode, reminder_cron, reminder_at, last_reminded_at, created_at FROM tasks WHERE task_list_id = ? AND position = ?`,
 		taskListID, position,
 	)
 	var t Task
-	var rem int
-	err := row.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &rem, &t.ReminderCron, &t.ReminderAt, &t.LastRemindedAt, &t.CreatedAt)
+	err := row.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &t.ReminderMode, &t.ReminderCron, &t.ReminderAt, &t.LastRemindedAt, &t.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
-	t.Reminder = rem == 1
 	t.Assignees, _ = d.getAssigneesForTask(t.ID)
 	return &t, nil
 }
 
 func (d *Database) MarkAssigneeLeft(groupJID, assigneeJID string) ([]Task, error) {
 	rows, err := d.db.Query(`
-		SELECT t.id, t.task_list_id, t.position, t.title, t.status, t.deadline, t.reminder, t.created_at
+		SELECT t.id, t.task_list_id, t.position, t.title, t.status, t.deadline, t.created_at
 		FROM tasks t
 		JOIN task_lists tl ON t.task_list_id = tl.id
 		JOIN task_assignees ta ON ta.task_id = t.id
@@ -242,9 +257,7 @@ func (d *Database) MarkAssigneeLeft(groupJID, assigneeJID string) ([]Task, error
 	var tasks []Task
 	for rows.Next() {
 		var t Task
-		var rem int
-		rows.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &rem, &t.CreatedAt)
-		t.Reminder = rem == 1
+		rows.Scan(&t.ID, &t.TaskListID, &t.Position, &t.Title, &t.Status, &t.Deadline, &t.CreatedAt)
 		tasks = append(tasks, t)
 	}
 

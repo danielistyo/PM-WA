@@ -36,7 +36,7 @@
           <div class="row">
             <div class="{{if eq .Status "done"}}done{{end}}">
               <strong>{{.Position}}. {{.Title}}</strong>
-              <div class="muted">due {{fmtTime .Deadline}}{{if .Reminder}}{{with reminderText .}} <br/> reminder: <span data-cron-humanize>{{.}}</span>{{end}}{{end}}</div>
+              <div class="muted">due {{fmtTime .Deadline}}{{if ne .ReminderMode "none"}}{{with reminderText .}} <br/> reminder: <span data-cron-humanize>{{.}}</span>{{end}}{{end}}</div>
             </div>
             <span class="pill">{{.Status}}</span>
           </div>

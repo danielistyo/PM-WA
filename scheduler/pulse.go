@@ -17,18 +17,16 @@ import (
 var gmt7 = time.FixedZone("GMT+7", 7*60*60)
 
 type Scheduler struct {
-	client       *bot.Client
-	db           *db.Database
-	cron         *cron.Cron
-	mu           sync.Mutex
-	scheduleTime string
+	client *bot.Client
+	db     *db.Database
+	cron   *cron.Cron
+	mu     sync.Mutex
 }
 
-func New(client *bot.Client, database *db.Database, scheduleTime string) *Scheduler {
+func New(client *bot.Client, database *db.Database) *Scheduler {
 	return &Scheduler{
-		client:       client,
-		db:           database,
-		scheduleTime: scheduleTime,
+		client: client,
+		db:     database,
 	}
 }
 
@@ -42,11 +40,6 @@ func (s *Scheduler) Start() {
 		return
 	}
 
-	// Validate the default schedule used for tasks without a custom reminder.
-	if _, err := cron.ParseStandard(s.scheduleTime); err != nil {
-		slog.Error("invalid SCHEDULE_TIME cron expression, tasks without a custom reminder will not fire", "expr", s.scheduleTime, "error", err)
-	}
-
 	loc, _ := time.LoadLocation("Asia/Jakarta")
 	s.cron = cron.New(cron.WithLocation(loc))
 
@@ -57,7 +50,7 @@ func (s *Scheduler) Start() {
 	})
 
 	s.cron.Start()
-	slog.Info("scheduler started", "default_schedule", s.scheduleTime)
+	slog.Info("scheduler started")
 }
 
 func (s *Scheduler) Stop() {
@@ -97,13 +90,13 @@ func (s *Scheduler) tick(now time.Time) {
 
 		var dueTasks []db.Task
 		for _, t := range tasks {
-			if !t.Reminder || t.Status != "todo" {
+			if t.ReminderMode == db.ModeNone || t.Status != "todo" {
 				continue
 			}
 			if t.LastRemindedAt >= minuteUnix {
 				continue
 			}
-			if s.taskDue(t, minuteStart, minuteUnix) {
+			if taskDue(t, minuteStart, minuteUnix) {
 				dueTasks = append(dueTasks, t)
 			}
 		}
@@ -128,20 +121,32 @@ func (s *Scheduler) tick(now time.Time) {
 
 // taskDue reports whether the task's reminder schedule fires during the minute
 // starting at minuteStart.
-func (s *Scheduler) taskDue(t db.Task, minuteStart time.Time, minuteUnix int64) bool {
-	if t.ReminderAt > 0 {
-		return t.ReminderAt-(t.ReminderAt%60) == minuteUnix
-	}
-
-	expr := t.ReminderCron
-	if expr == "" {
-		expr = s.scheduleTime
-	}
-	sched, err := cron.ParseStandard(expr)
-	if err != nil {
+//
+// One-shot reminders (ModeAt and ModeDeadline) fire at their minute, or once
+// late on the next tick if that minute was missed (e.g. the bot was offline);
+// LastRemindedAt==0 latches them so they fire exactly once. Recurring reminders
+// (ModeCron) fire on the exact cron minute.
+func taskDue(t db.Task, minuteStart time.Time, minuteUnix int64) bool {
+	switch t.ReminderMode {
+	case db.ModeAt, db.ModeDeadline:
+		at := t.Deadline
+		if t.ReminderMode == db.ModeAt {
+			at = t.ReminderAt
+		}
+		// Deadlines and reminder times are minute-precision; truncate
+		// defensively so seconds can never break the comparison.
+		at -= at % 60
+		return at <= minuteUnix && t.LastRemindedAt == 0
+	case db.ModeCron:
+		sched, err := cron.ParseStandard(t.ReminderCron)
+		if err != nil {
+			return false
+		}
+		return sched.Next(minuteStart.Add(-time.Second)).Equal(minuteStart)
+	default:
+		// Unknown mode: never fire (write paths can no longer produce one).
 		return false
 	}
-	return sched.Next(minuteStart.Add(-time.Second)).Equal(minuteStart)
 }
 
 func (s *Scheduler) handleBotKicked(ctx context.Context, groupJID types.JID) {

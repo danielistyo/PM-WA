@@ -48,7 +48,7 @@ func main() {
 		db:           database,
 		cmdHandler:   cmd.NewHandler(client, database, cfg.WebBaseURL),
 		replyHandler: reply.NewHandler(client, database),
-		scheduler:    scheduler.New(client, database, cfg.ScheduleTime),
+		scheduler:    scheduler.New(client, database),
 	}
 
 	client.WA.AddEventHandler(app.eventHandler)

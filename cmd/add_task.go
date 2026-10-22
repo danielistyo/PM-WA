@@ -22,7 +22,7 @@ func (h *Handler) addTask(ctx context.Context, senderJID types.JID, fields map[s
 	reminderStr := fields["reminder"]
 
 	if waGroup == "" || listName == "" || title == "" || assignStr == "" || deadlineStr == "" {
-		h.sendPM(ctx, senderJID, "Command Aborted: Missing required fields. Usage:\nadd-task\nwa-group: {WA Group}\nlist: {List Name}\ntitle: {Title}\nassign: {Phone1, Phone2}\ndeadline: {YYYY-MM-DD HH:MM}\nreminder: {yes/no, 'every monday at 20:00', 'every 3rd at 09:00', or '2029-03-29 20:00'}")
+		h.sendPM(ctx, senderJID, "Command Aborted: Missing required fields. Usage:\nadd-task\nwa-group: {WA Group}\nlist: {List Name}\ntitle: {Title}\nassign: {Phone1, Phone2}\ndeadline: {YYYY-MM-DD HH:MM}\nreminder: {yes (at the task deadline) / no, 'every monday at 20:00', 'every 3rd at 09:00', or '2029-03-29 20:00'}")
 		return
 	}
 
@@ -99,7 +99,7 @@ func (h *Handler) addTask(ctx context.Context, senderJID types.JID, fields map[s
 		return
 	}
 
-	_, err = h.db.CreateTask(taskList.ID, title, deadline.Unix(), reminderSpec.Enabled, reminderSpec.Cron, reminderSpec.At, assigneeJIDs)
+	_, err = h.db.CreateTask(taskList.ID, title, deadline.Unix(), reminderSpec.Mode(), reminderSpec.Cron, reminderSpec.At, assigneeJIDs)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			h.sendPM(ctx, senderJID, "Command Aborted: A task with title '"+title+"' already exists in '"+listName+"'.")

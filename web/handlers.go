@@ -171,7 +171,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request, sess s
 		s.renderMessage(w, http.StatusBadRequest, "Cannot add task", errMsg)
 		return
 	}
-	if _, err := s.db.CreateTask(list.ID, title, deadline, spec.Enabled, spec.Cron, spec.At, assignees); err != nil {
+	if _, err := s.db.CreateTask(list.ID, title, deadline, spec.Mode(), spec.Cron, spec.At, assignees); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			s.renderMessage(w, http.StatusConflict, "Cannot add task", "A task with that title already exists in this list.")
 			return
@@ -236,7 +236,7 @@ func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request, sess s
 		s.renderMessage(w, http.StatusBadRequest, "Cannot update task", errMsg)
 		return
 	}
-	if err := s.db.UpdateTaskFields(task.ID, title, deadline, spec.Enabled, spec.Cron, spec.At); err != nil {
+	if err := s.db.UpdateTaskFields(task.ID, title, deadline, spec.Mode(), spec.Cron, spec.At); err != nil {
 		s.renderMessage(w, http.StatusInternalServerError, "Error", "Could not update the task.")
 		return
 	}
@@ -418,14 +418,15 @@ func (s *Server) handleGroupMembers(w http.ResponseWriter, r *http.Request, sess
 }
 
 func reminderToText(t db.Task) string {
-	if !t.Reminder {
+	switch t.ReminderMode {
+	case db.ModeNone:
 		return "no"
-	}
-	if t.ReminderAt > 0 {
+	case db.ModeAt:
 		return time.Unix(t.ReminderAt, 0).In(gmt7).Format("2006-01-02 15:04")
-	}
-	if t.ReminderCron != "" {
+	case db.ModeCron:
 		return t.ReminderCron
+	default:
+		// ModeDeadline — shown as "yes"; the deadline is the task's own row.
+		return "yes"
 	}
-	return "yes"
 }

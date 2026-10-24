@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/mdp/qrterminal/v3"
 )
@@ -47,10 +48,12 @@ func (c *Client) ResetSession() error {
 	if c.WA.Store.ID == nil {
 		return nil
 	}
-	if err := c.container.DeleteDevice(context.Background(), c.WA.Store); err != nil {
+	c.Disconnect()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := c.container.DeleteDevice(ctx, c.WA.Store); err != nil {
 		return fmt.Errorf("failed to delete stored device: %w", err)
 	}
-	c.Disconnect()
 	return c.container.Close()
 }
 

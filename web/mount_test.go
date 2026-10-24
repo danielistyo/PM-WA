@@ -36,9 +36,18 @@ func newMountDB(t *testing.T, seedList string) (*db.Database, string) {
 	return d, token
 }
 
-// newTestServer builds an httptest server from the given mounts.
+// newTestServer builds an httptest server from the given mounts, deriving
+// the URL prefixes the same way main.go does: a single account mounts at
+// the bare root, two or more mount under /a/<name>/.
 func newTestServer(t *testing.T, specs []MountSpec) *httptest.Server {
 	t.Helper()
+	if len(specs) > 1 {
+		for i := range specs {
+			specs[i].Prefix = "/a/" + specs[i].Name
+		}
+	} else if len(specs) == 1 {
+		specs[0].Prefix = "/"
+	}
 	s := NewServer(specs, "http://example.com")
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)

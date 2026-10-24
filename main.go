@@ -87,13 +87,13 @@ func runSingle(acct accounts.Account, cfg Config) {
 		os.Exit(1)
 	}
 
-	app := newApp(acct, client, database, cfg)
+	app := newApp(acct, client, database, cfg, cfg.WebBaseURL)
 
 	client.WA.AddEventHandler(app.eventHandler)
 
 	if cfg.WebBaseURL != "" {
 		webServer := web.NewServer([]web.MountSpec{
-			{Name: acct.Name, DB: database, Client: client},
+			{Name: acct.Name, Prefix: "/", DB: database, Client: client},
 		}, cfg.WebBaseURL)
 		go func() {
 			slog.Info("starting web server", "addr", cfg.WebListenAddr)
@@ -143,7 +143,12 @@ func runMulti(accts []accounts.Account, cfg Config) {
 		// prefix with independent auth; a single listener serves them all.
 		mounts := make([]web.MountSpec, 0, len(apps))
 		for _, app := range apps {
-			mounts = append(mounts, web.MountSpec{Name: app.name, DB: app.db, Client: app.client})
+			mounts = append(mounts, web.MountSpec{
+				Name:   app.name,
+				Prefix: accountPrefix(app.name),
+				DB:     app.db,
+				Client: app.client,
+			})
 		}
 		webServer := web.NewServer(mounts, cfg.WebBaseURL)
 		go func() {
@@ -190,7 +195,7 @@ func startAccount(acct accounts.Account, cfg Config) (*App, error) {
 		return nil, nil
 	}
 
-	app := newApp(acct, client, database, cfg)
+	app := newApp(acct, client, database, cfg, webLinkBase(cfg.WebBaseURL, acct.Name))
 	client.WA.AddEventHandler(app.eventHandler)
 	go func() {
 		if err := client.Connect(); err != nil {
@@ -200,25 +205,31 @@ func startAccount(acct accounts.Account, cfg Config) (*App, error) {
 	return app, nil
 }
 
-func newApp(acct accounts.Account, client *bot.Client, database *db.Database, cfg Config) *App {
+func newApp(acct accounts.Account, client *bot.Client, database *db.Database, cfg Config, linkBase string) *App {
 	return &App{
 		name:         acct.Name,
 		client:       client,
 		db:           database,
-		cmdHandler:   cmd.NewHandler(client, database, webLinkBase(cfg.WebBaseURL, acct.Name)),
+		cmdHandler:   cmd.NewHandler(client, database, linkBase),
 		replyHandler: reply.NewHandler(client, database),
 		scheduler:    scheduler.New(client, database),
 	}
 }
 
+// accountPrefix is the single owner of the /a/<name> URL scheme.
+func accountPrefix(accountName string) string {
+	return "/a/" + accountName
+}
+
 // webLinkBase builds the web base for outbound links of one account. In
 // multi-account mode every account mounts under /a/<name>/, so links must
-// carry the sending account's prefix.
+// carry the sending account's prefix. Single-account mode mounts at the
+// bare root and must NOT be given a prefix here.
 func webLinkBase(baseURL, accountName string) string {
 	if baseURL == "" {
 		return ""
 	}
-	return strings.TrimRight(baseURL, "/") + "/a/" + accountName
+	return strings.TrimRight(baseURL, "/") + accountPrefix(accountName)
 }
 
 // warnUnmigratedLegacy surfaces legacy root data files that were skipped

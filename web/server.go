@@ -22,9 +22,13 @@ var gmt7 = time.FixedZone("GMT+7", 7*60*60)
 
 const sessionCookie = "pmwa_sess"
 
-// MountSpec describes one account's web UI: which database and client serve it.
+// MountSpec describes one account's web UI: its URL prefix, database and
+// client. The caller decides the mounting scheme (root for a single
+// account, /a/<name> for multi-account); the server only mounts what it is
+// told.
 type MountSpec struct {
 	Name   string
+	Prefix string // "/" or "/a/<name>" (no trailing slash)
 	DB     *db.Database
 	Client *bot.Client
 }
@@ -89,10 +93,10 @@ func templateFuncMap() template.FuncMap {
 	}
 }
 
-// NewServer builds the web UI for the given account mounts. With exactly one
-// mount the UI is served from the bare root (URL paths, cookie name and
-// auth behavior identical to the pre-multi-account UI); with more than one,
-// every account mounts under /a/<name>/.
+// NewServer builds the web UI for the given account mounts. A mount with
+// prefix "/" is served from the bare root (URL paths, cookie name and
+// auth behavior identical to the pre-multi-account UI); prefixed mounts
+// sit under /a/<name>/.
 func NewServer(mounts []MountSpec, baseURL string) *Server {
 	tmpl := template.Must(
 		template.New("").Funcs(templateFuncMap()).ParseFS(templatesFS, "templates/*.html"),
@@ -105,15 +109,14 @@ func NewServer(mounts []MountSpec, baseURL string) *Server {
 	for _, spec := range mounts {
 		m := &mount{
 			name:   spec.Name,
+			prefix: spec.Prefix,
 			db:     spec.DB,
 			client: spec.Client,
 		}
-		if len(mounts) == 1 {
-			m.prefix = "/"
+		if m.prefix == "/" {
 			m.cookieName = sessionCookie
 		} else {
-			m.prefix = "/a/" + spec.Name
-			m.cookieName = sessionCookie + "_" + spec.Name
+			m.cookieName = sessionCookie + "_" + m.name
 		}
 		m.inner = s.innerHandler(m)
 		s.mounts = append(s.mounts, m)

@@ -15,7 +15,7 @@ pm-wa pair <name>  # pair a named account from the terminal
 
 | Variable         | Meaning                                                                                                   | Default |
 |------------------|-----------------------------------------------------------------------------------------------------------|---------|
-| `WA_ACCOUNTS`    | Comma-separated bot account names, e.g. `sales,service`. Unset means a single account named `default`.      | unset   |
+| `WA_ACCOUNTS`    | Comma-separated bot account names, e.g. `sales,service`. Unset (or a single name) means one account — `default` when unset. | unset   |
 | `WEB_BASE_URL`   | Public base URL of the web UI (e.g. `https://tasks.example.com`). Unset disables the web UI entirely.       | unset   |
 | `WEB_LISTEN_ADDR`| Local listen address of the web server.                                                                   | `:8080` |
 
@@ -102,8 +102,10 @@ prefix:
   the account that sent them; each account's browser cookie is named
   `pmwa_sess_<name>` and scoped to its own prefix.
 - The navbar has an account switcher to jump between dashboards.
-- With `WA_ACCOUNTS` unset, the UI is served at the bare root with the
-  legacy `pmwa_sess` cookie — identical to the pre-multi-account behavior.
+- With a single account — `WA_ACCOUNTS` unset, or set to exactly one name —
+  the UI is served at the bare root with the legacy `pmwa_sess` cookie,
+  identical to the pre-multi-account behavior. The `/a/<name>/` prefixes
+  appear only when two or more accounts are configured.
 
 ### Connection status badge
 

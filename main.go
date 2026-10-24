@@ -92,7 +92,9 @@ func runSingle(acct accounts.Account, cfg Config) {
 	client.WA.AddEventHandler(app.eventHandler)
 
 	if cfg.WebBaseURL != "" {
-		webServer := web.NewServer(database, client, cfg.WebBaseURL)
+		webServer := web.NewServer([]web.MountSpec{
+			{Name: acct.Name, DB: database, Client: client},
+		}, cfg.WebBaseURL)
 		go func() {
 			slog.Info("starting web server", "addr", cfg.WebListenAddr)
 			if err := webServer.Start(cfg.WebListenAddr); err != nil {
@@ -137,8 +139,13 @@ func runMulti(accts []accounts.Account, cfg Config) {
 	}
 
 	if cfg.WebBaseURL != "" {
-		// TODO(T4): mount every account under its own /a/<name>/ prefix.
-		webServer := web.NewServer(apps[0].db, apps[0].client, cfg.WebBaseURL)
+		// One subserver per account, each mounted under its own /a/<name>/
+		// prefix with independent auth; a single listener serves them all.
+		mounts := make([]web.MountSpec, 0, len(apps))
+		for _, app := range apps {
+			mounts = append(mounts, web.MountSpec{Name: app.name, DB: app.db, Client: app.client})
+		}
+		webServer := web.NewServer(mounts, cfg.WebBaseURL)
 		go func() {
 			slog.Info("starting web server", "addr", cfg.WebListenAddr)
 			if err := webServer.Start(cfg.WebListenAddr); err != nil {

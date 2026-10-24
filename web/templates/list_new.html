@@ -5,12 +5,12 @@
   <div class="wrap">
     <div class="topbar">
       <h1>New List</h1>
-      <a href="/">Cancel</a>
+      <a href="{{.Nav.Pfx}}/">Cancel</a>
     </div>
 
     {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
 
-    <form method="post" action="/lists" class="card">
+    <form method="post" action="{{.Nav.Pfx}}/lists" class="card">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <label for="name">List name</label>
       <input id="name" name="name" required maxlength="120">

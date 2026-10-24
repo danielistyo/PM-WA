@@ -53,7 +53,7 @@ func TestTemplatesParseAndExecute(t *testing.T) {
 			AssigneeCSV:  "6281",
 			ReminderText: "0 20 * * 1",
 			DeadlineText: time.Unix(task.Deadline, 0).In(gmt7).Format("2006-01-02T15:04")}},
-		{"message.html", map[string]string{"Title": "t", "Body": "b"}},
+		{"message.html", map[string]any{"Title": "t", "Body": "b", "Nav": navData{}}},
 	}
 
 	for _, tc := range cases {
@@ -194,8 +194,8 @@ func TestEmbeddedStaticListing(t *testing.T) {
 }
 
 func TestServerServesAssets(t *testing.T) {
-	s := &Server{db: nil, client: nil, baseURL: "http://example.com", secure: false,
-		tmpl: newTestTemplate(t)}
+	// No mounts: only the shared static assets are exercised here.
+	s := NewServer(nil, "http://example.com")
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

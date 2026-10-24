@@ -5,23 +5,26 @@
   <div class="wrap">
     <div class="topbar">
       <h1>{{.List.Name}}</h1>
-      <a href="/">Home</a>
+      <span class="navbox">
+        {{template "accountnav" .Nav}}
+        <a href="{{.Nav.Pfx}}/">Home</a>
+      </span>
     </div>
     <p class="muted">{{.GroupName}} &middot; <span class="pill {{.List.Status}}">{{.List.Status}}</span></p>
 
     <div class="card">
       <div class="actions">
         {{if ne .List.Status "stopped"}}
-        <form method="post" action="/lists/{{.List.ID}}/publish" class="inline">
+        <form method="post" action="{{.Nav.Pfx}}/lists/{{.List.ID}}/publish" class="inline">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <button class="btn" type="submit">{{if eq .List.Status "active"}}Re-send summary{{else}}Publish{{end}}</button>
         </form>
-        <form method="post" action="/lists/{{.List.ID}}/stop" class="inline" onsubmit="return confirm('Permanently stop this list?');">
+        <form method="post" action="{{.Nav.Pfx}}/lists/{{.List.ID}}/stop" class="inline" onsubmit="return confirm('Permanently stop this list?');">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <button class="btn secondary" type="submit">Stop</button>
         </form>
         {{end}}
-        <form method="post" action="/lists/{{.List.ID}}/delete" class="inline" onsubmit="return confirm('Delete this list and all its tasks?');">
+        <form method="post" action="{{.Nav.Pfx}}/lists/{{.List.ID}}/delete" class="inline" onsubmit="return confirm('Delete this list and all its tasks?');">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <button class="btn danger" type="submit">Delete list</button>
         </form>
@@ -42,8 +45,8 @@
           </div>
           {{if ne $.List.Status "stopped"}}
           <div class="actions">
-            <a href="/lists/{{$.List.ID}}/tasks/{{.Position}}/edit">Edit</a>
-            <form method="post" action="/lists/{{$.List.ID}}/tasks/{{.Position}}/delete" class="inline" onsubmit="return confirm('Delete this task?');">
+            <a href="{{$.Nav.Pfx}}/lists/{{$.List.ID}}/tasks/{{.Position}}/edit">Edit</a>
+            <form method="post" action="{{$.Nav.Pfx}}/lists/{{$.List.ID}}/tasks/{{.Position}}/delete" class="inline" onsubmit="return confirm('Delete this task?');">
               <input type="hidden" name="_csrf" value="{{$.CSRF}}">
               <button class="btn link" type="submit" style="color:var(--danger)">Delete</button>
             </form>
@@ -55,7 +58,7 @@
 
     {{if ne .List.Status "stopped"}}
     <h2>Add task</h2>
-    <form method="post" action="/lists/{{.List.ID}}/tasks" class="card">
+    <form method="post" action="{{.Nav.Pfx}}/lists/{{.List.ID}}/tasks" class="card">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <label for="title">Title</label>
       <input id="title" name="title" required maxlength="200">

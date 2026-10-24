@@ -34,12 +34,15 @@ func (h *Handler) tasklistWeb(ctx context.Context, senderJID types.JID) {
 	}
 
 	webRateMu.Lock()
-	if last, exists := webLastSent[jid]; exists && time.Since(last) < webRequestCooldown {
+	// Key by link base too, so the same admin can request links from two
+	// different bot accounts without one blocking the other.
+	rateKey := h.webBaseURL + "|" + jid
+	if last, exists := webLastSent[rateKey]; exists && time.Since(last) < webRequestCooldown {
 		webRateMu.Unlock()
 		h.sendPM(ctx, senderJID, "Please wait a moment before requesting another link.")
 		return
 	}
-	webLastSent[jid] = time.Now()
+	webLastSent[rateKey] = time.Now()
 	webRateMu.Unlock()
 
 	token, err := randomToken()

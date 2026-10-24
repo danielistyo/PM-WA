@@ -29,10 +29,29 @@
   .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
   .done { text-decoration: line-through; color: var(--muted); }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .navbox { display:flex; align-items:center; gap:10px; }
+  .switcher { display:flex; gap:8px; }
+  .switcher a { font-size:.85rem; }
+  .switcher a.current { color:var(--fg); font-weight:600; text-decoration:none; }
+  .status-connected { background:#e3f3ea; color:var(--accent); }
+  .status-pairing-required { background:#fdf3d8; color:#9a6b00; }
+  .status-error { background:#fbe7e5; color:var(--danger); }
+  .status-unknown { background:#eef1f4; color:var(--muted); }
 </style>
 <link rel="stylesheet" href="/static/reminder-picker.css">
 <link rel="stylesheet" href="/static/assignee-picker.css">
 <script src="/static/cronstrue.min.js" defer></script>
 <script src="/static/reminder-picker.js" defer></script>
 <script src="/static/assignee-picker.js" defer></script>
+{{end}}
+
+{{define "accountnav"}}
+{{if .Accounts}}
+  <span class="navbox">
+    <span class="pill status-{{.Status}}" title="Connection status">{{.Status}}</span>
+    <span class="switcher">
+      {{range .Accounts}}<a {{if .Current}}class="current"{{end}} href="{{.Href}}">{{.Name}}</a>{{end}}
+    </span>
+  </span>
+{{end}}
 {{end}}

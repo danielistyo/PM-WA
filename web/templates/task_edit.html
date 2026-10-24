@@ -5,10 +5,10 @@
   <div class="wrap">
     <div class="topbar">
       <h1>Edit Task</h1>
-      <a href="/lists/{{.List.ID}}">Back</a>
+      <a href="{{.Nav.Pfx}}/lists/{{.List.ID}}">Back</a>
     </div>
 
-    <form method="post" action="/lists/{{.List.ID}}/tasks/{{.Task.Position}}" class="card">
+    <form method="post" action="{{.Nav.Pfx}}/lists/{{.List.ID}}/tasks/{{.Task.Position}}" class="card">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <label for="title">Title</label>
       <input id="title" name="title" required maxlength="200" value="{{.Task.Title}}">
@@ -26,7 +26,7 @@
 
       <div class="actions">
         <button class="btn" type="submit">Save changes</button>
-        <a class="btn secondary" href="/lists/{{.List.ID}}">Cancel</a>
+        <a class="btn secondary" href="{{.Nav.Pfx}}/lists/{{.List.ID}}">Cancel</a>
       </div>
     </form>
   </div>

@@ -29,6 +29,17 @@ type App struct {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "pair":
+			runPair(os.Args[2:])
+			return
+		default:
+			fmt.Fprintf(os.Stderr, "unknown command %q; usage: pm-wa [pair <account-name>]\n", os.Args[1])
+			os.Exit(2)
+		}
+	}
+
 	cfg := DefaultConfig()
 
 	res, err := accounts.Resolve(os.Getenv("WA_ACCOUNTS"), accounts.StatFSState())

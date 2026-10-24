@@ -11,6 +11,7 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 
+	"pm-wa/accounts"
 	"pm-wa/bot"
 	"pm-wa/cmd"
 	"pm-wa/db"
@@ -30,14 +31,31 @@ type App struct {
 func main() {
 	cfg := DefaultConfig()
 
-	database, err := db.New(cfg.DBPath)
+	res, err := accounts.Resolve(os.Getenv("WA_ACCOUNTS"), accounts.StatFSState())
+	if err != nil {
+		slog.Error("failed to resolve accounts", "error", err)
+		os.Exit(1)
+	}
+
+	if err := accounts.Apply(res); err != nil {
+		slog.Error("legacy data migration failed", "error", err)
+		os.Exit(1)
+	}
+	warnUnmigratedLegacy()
+
+	if err := res.Accounts[0].EnsureDir(); err != nil {
+		slog.Error("failed to create account data directory", "error", err)
+		os.Exit(1)
+	}
+
+	database, err := db.New(res.Accounts[0].AppDBPath)
 	if err != nil {
 		slog.Error("failed to open database", "error", err)
 		os.Exit(1)
 	}
 	defer database.Close()
 
-	client, err := bot.NewClient(cfg.SessionDBPath)
+	client, err := bot.NewClient(res.Accounts[0].SessionDBPath)
 	if err != nil {
 		slog.Error("failed to create WA client", "error", err)
 		os.Exit(1)
@@ -75,6 +93,16 @@ func main() {
 	slog.Info("shutting down")
 	app.scheduler.Stop()
 	client.Disconnect()
+}
+
+// warnUnmigratedLegacy surfaces legacy root data files that were skipped
+// (data/default already exists), mirroring the "target exists" resolve case.
+func warnUnmigratedLegacy() {
+	for _, file := range accounts.LegacyFiles() {
+		if _, err := os.Stat(file); err == nil {
+			slog.Warn("legacy data file left untouched", "file", file, "hint", "data/default already exists")
+		}
+	}
 }
 
 func (app *App) eventHandler(evt interface{}) {

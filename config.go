@@ -5,8 +5,6 @@ import (
 )
 
 type Config struct {
-	DBPath        string
-	SessionDBPath string
 	WebBaseURL    string
 	WebListenAddr string
 }
@@ -17,8 +15,6 @@ func DefaultConfig() Config {
 		webListenAddr = ":8080"
 	}
 	return Config{
-		DBPath:        "pm-wa.db",
-		SessionDBPath: "wa-session.db",
 		WebBaseURL:    os.Getenv("WEB_BASE_URL"),
 		WebListenAddr: webListenAddr,
 	}

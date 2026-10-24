@@ -1,4 +1,5 @@
 docs/
 /pm-wa*
 wa-session.db
+/data/
 /vendor

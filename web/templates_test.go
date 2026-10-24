@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"pm-wa/bot"
 	"pm-wa/db"
 )
 
@@ -163,6 +164,63 @@ func TestReminderFieldDefaultAndEditRendering(t *testing.T) {
 	}
 	if !bytes.Contains(buf.Bytes(), []byte(`data-initial="0 20 * * 1"`)) {
 		t.Errorf("expected data-initial to carry the cron value")
+	}
+}
+
+func TestAccountNavBadgeAndSwitcher(t *testing.T) {
+	tmpl := newTestTemplate(t)
+
+	cases := []struct {
+		name    string
+		nav     navData
+		want    string
+		wantNot string
+	}{
+		{
+			name: "connected badge renders green state",
+			nav: navData{Pfx: "/a/sales", Self: "sales", Status: bot.StatusConnected,
+				Accounts: []accountLink{{Name: "sales", Href: "/a/sales/", Current: true}, {Name: "service", Href: "/a/service/"}}},
+			want: `status-connected`,
+		},
+		{
+			name: "pairing-required badge renders its state",
+			nav: navData{Status: bot.StatusPairingRequired,
+				Accounts: []accountLink{{Name: "sales", Href: "/a/sales/", Current: true}}},
+			want: `status-pairing-required`,
+		},
+		{
+			name: "error badge renders its state",
+			nav: navData{Status: bot.StatusError,
+				Accounts: []accountLink{{Name: "sales", Href: "/a/sales/", Current: true}}},
+			want: `status-error`,
+		},
+		{
+			name: "unknown badge renders degraded state",
+			nav: navData{Status: bot.StatusUnknown,
+				Accounts: []accountLink{{Name: "sales", Href: "/a/sales/", Current: true}}},
+			want: `status-unknown`,
+		},
+		{
+			name:    "single-account mode renders no switcher or badge",
+			nav:     navData{Pfx: "", Self: "default", Status: bot.StatusConnected},
+			wantNot: "status-",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := tmpl.ExecuteTemplate(&buf, "accountnav", tc.nav); err != nil {
+				t.Fatalf("execute accountnav: %v", err)
+			}
+			out := buf.String()
+			if tc.want != "" && !strings.Contains(out, tc.want) {
+				t.Errorf("expected %q in accountnav output, got:\n%s", tc.want, out)
+			}
+			if tc.wantNot != "" && strings.Contains(out, tc.wantNot) {
+				t.Errorf("expected %q to be absent in accountnav output", tc.wantNot)
+			}
+		})
 	}
 }
 

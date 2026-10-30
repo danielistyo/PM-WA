@@ -6,11 +6,30 @@ All user-facing times are in GMT+7.
 
 ## Language
 
-### People & identity
+### Accounts
 
 **Account**:
-One linked WhatsApp bot identity with its own isolated data directory.
+One linked WhatsApp bot identity with its own isolated data directory,
+identified by a unique name that scopes everything the account owns.
 _Avoid_: bot instance, session
+
+**Account declaration**:
+The set of account names a run serves, in order. A run without any
+declaration serves only the default account.
+_Avoid_: account list, WA_ACCOUNTS
+
+**Default account**:
+The account a run serves when none are declared.
+_Avoid_: fallback account, first account
+
+**Pair**:
+Link a WhatsApp identity to a named account, storing the WhatsApp
+session under that account's data directory. An account paired once
+reconnects automatically on later runs and keeps its data even while
+undeclared.
+_Avoid_: login, sign-in
+
+### People & identity
 
 **Admin**:
 The person who created a task list; the only one who can publish or stop it.

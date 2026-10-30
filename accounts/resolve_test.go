@@ -26,13 +26,13 @@ func legacyState(t *testing.T, present string, defaultDirExists bool) FSState {
 
 func TestResolve(t *testing.T) {
 	tests := []struct {
-		name        string
-		env         string
-		st          FSState
-		wantNames   []string
-		wantMoves   []string
-		wantErr     bool
-		wantErrHas  string
+		name       string
+		env        string
+		st         FSState
+		wantNames  []string
+		wantMoves  []string
+		wantErr    bool
+		wantErrHas string
 	}{
 		{
 			name:      "unset env resolves default account",
@@ -79,10 +79,10 @@ func TestResolve(t *testing.T) {
 			wantErrHas: "sales team",
 		},
 		{
-			name:       "name with underscore is invalid",
-			env:        "sales_team",
-			st:         legacyState(t, "", false),
-			wantErr:    true,
+			name:    "name with underscore is invalid",
+			env:     "sales_team",
+			st:      legacyState(t, "", false),
+			wantErr: true,
 		},
 		{
 			name:       "duplicate names are rejected",

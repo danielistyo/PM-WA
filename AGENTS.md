@@ -56,3 +56,32 @@ go test ./...
 ```
 
 There is no Makefile or separate lint target; `go vet` is the lint gate. Manual checks requiring a live WhatsApp session must be flagged as manual, not implied to pass.
+
+## Deployment
+
+Production runs on host `emangtop@103.30.194.149`, in the tmux session `pm-wa`, from the repo checkout in the pane's working directory.
+
+Deploy procedure (after committing and pushing to `master` locally):
+
+1. `ssh emangtop@103.30.194.149`
+2. `tmux a -t pm-wa`
+3. Stop the current process (Ctrl+C)
+4. `git pull`
+5. `go build .`
+6. `./pm-wa`
+
+Detach from tmux with Ctrl+B then `d` — this leaves the bot running. Never close the attached pane with `exit`; that kills the session and stops the bot.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `danielistyo/PM-WA`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role triage vocabulary, each label string equal to its role name. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` + `docs/adr/`, created lazily. See `docs/agents/domain.md`.

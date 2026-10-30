@@ -3,11 +3,11 @@
 
   var cache = {}; // jid -> array of { phone: "...", name: "..." }
 
-  function fetchMembers(jid, cb) {
+  function fetchMembers(pfx, jid, cb) {
     if (cache[jid]) {
       return cb(null, cache[jid]);
     }
-    fetch('/api/groups/' + encodeURIComponent(jid) + '/members')
+    fetch(pfx + '/api/groups/' + encodeURIComponent(jid) + '/members')
       .then(function(res) {
         if (!res.ok) throw new Error('Network error');
         return res.json();
@@ -23,6 +23,7 @@
 
   function setupWidget(rootEl) {
     var jid = rootEl.getAttribute('data-group');
+    var pfx = rootEl.getAttribute('data-pfx') || '';
     var selectedRaw = rootEl.getAttribute('data-selected');
     var selectedPhones = selectedRaw ? selectedRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
     
@@ -161,7 +162,7 @@
       if (state.open && !state.members && !state.loading) {
         state.loading = true;
         render();
-        fetchMembers(jid, function(err, data) {
+        fetchMembers(pfx, jid, function(err, data) {
           state.loading = false;
           if (err) {
             state.error = true;

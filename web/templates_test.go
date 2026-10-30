@@ -224,6 +224,58 @@ func TestAccountNavBadgeAndSwitcher(t *testing.T) {
 	}
 }
 
+func TestAssigneePickerCarriesMountPrefix(t *testing.T) {
+	tmpl := newTestTemplate(t)
+
+	// The assignee picker's fetch URL is built from the mount prefix baked
+	// into the page: in multi-account mode the members endpoint lives under
+	// /a/<name>/api/..., and a hardcoded bare-root fetch 404s (dispatch has
+	// no bare-root mount in that mode).
+	list := db.TaskList{ID: 1, Name: "Team", GroupJID: "120363408491084577@g.us", AdminJID: testAdminJID}
+	task := db.Task{ID: 1, TaskListID: 1, Position: 1, Title: "Ship it", Status: "todo"}
+
+	cases := []struct {
+		name    string
+		page    string
+		pfx     string
+		want    string
+		wantNot string
+	}{
+		{"list detail on a prefixed mount stamps the account prefix",
+			"list_detail.html", "/a/sales", `data-pfx="/a/sales"`, ""},
+		{"task edit on a prefixed mount stamps the account prefix",
+			"task_edit.html", "/a/sales", `data-pfx="/a/sales"`, ""},
+		{"list detail at the bare root renders an empty prefix",
+			"list_detail.html", "", `data-pfx=""`, `data-pfx="/`},
+		{"task edit at the bare root renders an empty prefix",
+			"task_edit.html", "", `data-pfx=""`, `data-pfx="/`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			nav := navData{Pfx: tc.pfx}
+			var buf bytes.Buffer
+			var err error
+			if tc.page == "list_detail.html" {
+				err = tmpl.ExecuteTemplate(&buf, tc.page, listDetailView{Nav: nav, CSRF: "tok", List: list})
+			} else {
+				err = tmpl.ExecuteTemplate(&buf, tc.page, editTaskView{Nav: nav, CSRF: "tok", List: list,
+					Task: task, AssigneeCSV: "6281"})
+			}
+			if err != nil {
+				t.Fatalf("execute %s: %v", tc.page, err)
+			}
+			out := buf.String()
+			if !strings.Contains(out, tc.want) {
+				t.Errorf("expected %q in rendered %s, got:\n%s", tc.want, tc.page, out)
+			}
+			if tc.wantNot != "" && strings.Contains(out, tc.wantNot) {
+				t.Errorf("expected %q to be absent in rendered %s", tc.wantNot, tc.page)
+			}
+		})
+	}
+}
+
 func TestEmbeddedStaticListing(t *testing.T) {
 	want := map[string]struct{}{}
 	files, err := staticFS.ReadDir("static")

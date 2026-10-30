@@ -14,7 +14,7 @@
       <input id="title" name="title" required maxlength="200" value="{{.Task.Title}}">
 
       <label for="assign">Assignees</label>
-      <div class="ap-wrap" data-group="{{.List.GroupJID}}" data-selected="{{.AssigneeCSV}}">
+      <div class="ap-wrap" data-group="{{.List.GroupJID}}" data-selected="{{.AssigneeCSV}}" data-pfx="{{.Nav.Pfx}}">
         <!-- Assignee picker widget will be rendered here -->
       </div>
 

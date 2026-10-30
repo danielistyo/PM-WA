@@ -61,7 +61,7 @@ There is no Makefile or separate lint target; `go vet` is the lint gate. Manual 
 
 Production runs on host `emangtop@103.30.194.149`, in the tmux session `pm-wa`, from the checkout at `/home/emangtop/PM-WA`. nginx (`/etc/nginx/conf.d/reminder-wa.conf`) proxies `reminder-wa.emang.top` to `127.0.0.1:8888`.
 
-The two env vars below are defined **nowhere** on the host (no `.bashrc`, no `.env`, no systemd) — they must be exported in the pane at start. A tmux server inherits env from whatever started it, so if the server is ever recreated (e.g. after a crash), a pane started from a plain ssh shell would run with the web UI disabled (`WEB_BASE_URL` empty) and nginx would 502. Production is single-account: `WA_ACCOUNTS` stays unset (account `default`).
+The three env vars below are defined **nowhere** on the host (no `.bashrc`, no `.env`, no systemd) — they must be exported in the pane at start. A tmux server inherits env from whatever started it, so if the server is ever recreated (e.g. after a crash), panes started from a plain ssh shell run with the second account and/or web UI missing silently: no `WA_ACCOUNTS` → only account `default` runs; `WEB_BASE_URL` empty → web UI disabled and nginx 502s. Production is **multi-account**: `WA_ACCOUNTS=default,test` (`data/default` and `data/test`).
 
 Deploy procedure (after committing and pushing to `master` locally):
 
@@ -69,13 +69,13 @@ Deploy procedure (after committing and pushing to `master` locally):
 2. `tmux a -t pm-wa`
 3. Stop the current process (Ctrl+C)
 4. `git pull`
-5. `export WEB_BASE_URL=https://reminder-wa.emang.top WEB_LISTEN_ADDR=:8888`
+5. `export WA_ACCOUNTS=default,test WEB_BASE_URL=https://reminder-wa.emang.top WEB_LISTEN_ADDR=:8888`
 6. `go build .`
 7. `./pm-wa`
 
 Detach from tmux with Ctrl+B then `d` — this leaves the bot running. Never close the attached pane with `exit`; that kills the session and stops the bot.
 
-Verify after every deploy: `curl -o /dev/null -w '%{http_code}' https://reminder-wa.emang.top/` must return `401` (login page, not logged in) — `502` means the env vars are missing and `./pm-wa` runs WhatsApp-only.
+Verify after every deploy: in multi-account mode both `/a/default/` and `/a/test/` must return `401` (login page; curl unauthenticated) and the bare root `/` returns `404` by design. `502` on `/a/default/` means the WEB env vars are missing; a `200/401` on bare `/` means `WA_ACCOUNTS` is unset and only the default account is running.
 
 ## Agent skills
 

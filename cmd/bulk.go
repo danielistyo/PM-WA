@@ -12,19 +12,31 @@ import (
 // maxBulkTasks is the hard cap of task blocks accepted by one add-tasks command.
 const maxBulkTasks = 50
 
-var bulkTaskFieldNames = map[string]bool{
-	"title":    true,
-	"assign":   true,
-	"deadline": true,
-	"reminder": true,
-}
+// taskFieldOrder is the canonical task-field list; unknown-field checks and
+// header-phase detection both read from it so a new field is added once.
+var taskFieldOrder = []string{"title", "assign", "deadline", "reminder"}
+
+var bulkTaskFieldNames = func() map[string]bool {
+	m := make(map[string]bool, len(taskFieldOrder))
+	for _, k := range taskFieldOrder {
+		m[k] = true
+	}
+	return m
+}()
 
 var bulkHeaderFieldNames = map[string]bool{
 	"wa-group": true,
 	"list":     true,
 }
 
+// bulkUsage is the reply sent when the payload has no task blocks or exceeds the cap.
 const bulkUsage = "Usage:\nadd-tasks\nwa-group: {WA Group}\nlist: {List Name}\n\n(one block per task, separated by a blank line)\ntitle: {Title}\nassign: {Phone1, Phone2}\ndeadline: {YYYY-MM-DD HH:MM}\nreminder: {yes / no / 'every monday at 20:00' / '2029-03-29 20:00'}"
+
+// bulkCapReply is the abort reply for payloads over the 50-task cap. Pure so
+// the cap wording and the usage text are testable without a WhatsApp client.
+func bulkCapReply(n int) string {
+	return fmt.Sprintf("Command Aborted: %d task blocks found, but the maximum per command is %d. %s", n, maxBulkTasks, bulkUsage)
+}
 
 // BulkPayload is the parsed shape of an add-tasks message: one set of header
 // fields (wa-group, list) followed by blank-line-separated task blocks.
@@ -150,9 +162,12 @@ func ParseBulkPayload(text string) (*BulkPayload, error) {
 // validateBulkTasks validates every task block without touching the database.
 // Assignee membership is checked against a pre-fetched participant set; groups
 // whose participants are LID-primary (canVerifyMembership=false, the rule
-// bot.IsUserInGroup applies) skip the check optimistically. It returns the
-// valid tasks plus one human-readable error per rejected task; the caller must
-// add nothing when errs is non-empty.
+// bot.IsUserInGroup applies) skip the check optimistically. The participant
+// set also includes phone-number match keys, so bulk may accept an assignee
+// that add-task's JID-only match would reject — that is intentional: a real
+// member is never falsely aborted.
+// It returns the valid tasks plus one human-readable error per rejected task;
+// when errs is non-empty the caller must add nothing.
 func validateBulkTasks(waGroup, listName string, payload *BulkPayload, existingTitles map[string]bool, participants map[string]bool, canVerifyMembership bool) ([]BulkTask, []string) {
 	var errs []string
 	taskErr := func(idx int, title, format string, args ...any) {

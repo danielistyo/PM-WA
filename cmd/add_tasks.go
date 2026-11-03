@@ -11,8 +11,9 @@ import (
 )
 
 // bulkTimeout bounds the entire add-tasks command: one participants RPC plus a
-// single batched insert must never hang a chat reply.
-const bulkTimeout = 15 * time.Second
+// single batched insert finishes well within it (observed < 2s), keeping the
+// chat reply snappy and clear of the 15s web WriteTimeout figure.
+const bulkTimeout = 5 * time.Second
 
 func (h *Handler) addTasks(ctx context.Context, senderJID types.JID, text string) {
 	ctx, cancel := context.WithTimeout(ctx, bulkTimeout)
@@ -29,7 +30,7 @@ func (h *Handler) addTasks(ctx context.Context, senderJID types.JID, text string
 		return
 	}
 	if len(payload.Tasks) > maxBulkTasks {
-		h.sendPM(ctx, senderJID, fmt.Sprintf("Command Aborted: %d task blocks found, but the maximum per command is %d. %s", len(payload.Tasks), maxBulkTasks, bulkUsage))
+		h.sendPM(ctx, senderJID, bulkCapReply(len(payload.Tasks)))
 		return
 	}
 	if payload.WaGroup == "" || payload.ListName == "" {

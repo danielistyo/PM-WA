@@ -20,7 +20,7 @@ func TestLIDPrimaryOnly(t *testing.T) {
 			want:         true,
 		},
 		{
-			name: "empty participants is trivially LID-only",
+			name:         "empty participants is trivially LID-only",
 			participants: []types.GroupParticipant{},
 			want:         true,
 		},

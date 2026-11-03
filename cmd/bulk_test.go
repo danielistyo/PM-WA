@@ -138,6 +138,15 @@ func TestParseBulkPayloadNoTaskBlocks(t *testing.T) {
 	}
 }
 
+func TestBulkCapReplyNamesCapAndUsage(t *testing.T) {
+	got := bulkCapReply(51)
+	for _, want := range []string{"Command Aborted", "51 task blocks found", "maximum per command is 50", "Usage:\nadd-tasks"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("bulkCapReply(51) missing %q; got %q", want, got)
+		}
+	}
+}
+
 func TestMaxBulkTasks(t *testing.T) {
 	if maxBulkTasks != 50 {
 		t.Fatalf("maxBulkTasks = %d, want 50", maxBulkTasks)
@@ -239,66 +248,66 @@ func TestValidateBulkTasksErrors(t *testing.T) {
 		return "add-tasks\nwa-group: G\nlist: L\n\n" + extra
 	}
 	tests := []struct {
-		name    string
-		text    string
-		participants map[string]bool
+		name           string
+		text           string
+		participants   map[string]bool
 		existingTitles map[string]bool
-		wantSub string
+		wantSub        string
 	}{
 		{
-			name:    "missing title",
-			text:    base("assign: 6281234567890\ndeadline: 2026-11-06 17:00"),
+			name:         "missing title",
+			text:         base("assign: 6281234567890\ndeadline: 2026-11-06 17:00"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #1 (""): missing required field 'title'.`,
+			wantSub:      `Task #1 (""): missing required field 'title'.`,
 		},
 		{
-			name:    "missing assign",
-			text:    base("title: A\ndeadline: 2026-11-06 17:00"),
+			name:         "missing assign",
+			text:         base("title: A\ndeadline: 2026-11-06 17:00"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #1 ("A"): missing required field 'assign'.`,
+			wantSub:      `Task #1 ("A"): missing required field 'assign'.`,
 		},
 		{
-			name:    "missing deadline",
-			text:    base("title: A\nassign: 6281234567890"),
+			name:         "missing deadline",
+			text:         base("title: A\nassign: 6281234567890"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #1 ("A"): missing required field 'deadline'.`,
+			wantSub:      `Task #1 ("A"): missing required field 'deadline'.`,
 		},
 		{
-			name:    "invalid deadline format",
-			text:    base("title: A\nassign: 6281234567890\ndeadline: 06/11/2026"),
+			name:         "invalid deadline format",
+			text:         base("title: A\nassign: 6281234567890\ndeadline: 06/11/2026"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #1 ("A"): Invalid deadline format. Use YYYY-MM-DD HH:MM.`,
+			wantSub:      `Task #1 ("A"): Invalid deadline format. Use YYYY-MM-DD HH:MM.`,
 		},
 		{
-			name:    "invalid reminder spec",
-			text:    base("title: A\nassign: 6281234567890\ndeadline: 2026-11-06 17:00\nreminder: every never at 25:99"),
+			name:         "invalid reminder spec",
+			text:         base("title: A\nassign: 6281234567890\ndeadline: 2026-11-06 17:00\nreminder: every never at 25:99"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #1 ("A"): Invalid reminder time: hours must be 0-23 and minutes 0-59.`,
+			wantSub:      `Task #1 ("A"): Invalid reminder time: hours must be 0-23 and minutes 0-59.`,
 		},
 		{
-			name:    "no valid assignee phones",
-			text:    base("title: A\nassign: , ,\ndeadline: 2026-11-06 17:00"),
+			name:         "no valid assignee phones",
+			text:         base("title: A\nassign: , ,\ndeadline: 2026-11-06 17:00"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #1 ("A"): No valid assignee phone numbers provided.`,
+			wantSub:      `Task #1 ("A"): No valid assignee phone numbers provided.`,
 		},
 		{
-			name:    "assignee not in group",
-			text:    base("title: A\nassign: 6281234567890, 6281111111111\ndeadline: 2026-11-06 17:00"),
+			name:         "assignee not in group",
+			text:         base("title: A\nassign: 6281234567890, 6281111111111\ndeadline: 2026-11-06 17:00"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #1 ("A"): Assignee 6281111111111 is not a member of 'G'. Add them first.`,
+			wantSub:      `Task #1 ("A"): Assignee 6281111111111 is not a member of 'G'. Add them first.`,
 		},
 		{
-			name:    "duplicate against existing list title",
-			text:    base("title: Old task\nassign: 6281234567890\ndeadline: 2026-11-06 17:00"),
-			participants: map[string]bool{"6281234567890": true},
+			name:           "duplicate against existing list title",
+			text:           base("title: Old task\nassign: 6281234567890\ndeadline: 2026-11-06 17:00"),
+			participants:   map[string]bool{"6281234567890": true},
 			existingTitles: map[string]bool{"Old task": true},
-			wantSub: `Task #1 ("Old task"): A task with title 'Old task' already exists in 'L'.`,
+			wantSub:        `Task #1 ("Old task"): A task with title 'Old task' already exists in 'L'.`,
 		},
 		{
-			name:    "duplicate within batch",
-			text:    base("title: A\nassign: 6281234567890\ndeadline: 2026-11-06 17:00\n\ntitle: A\nassign: 6281234567890\ndeadline: 2026-11-07 17:00"),
+			name:         "duplicate within batch",
+			text:         base("title: A\nassign: 6281234567890\ndeadline: 2026-11-06 17:00\n\ntitle: A\nassign: 6281234567890\ndeadline: 2026-11-07 17:00"),
 			participants: map[string]bool{"6281234567890": true},
-			wantSub: `Task #2 ("A"): A task with title 'A' already exists in 'L'.`,
+			wantSub:      `Task #2 ("A"): A task with title 'A' already exists in 'L'.`,
 		},
 	}
 	for _, tt := range tests {

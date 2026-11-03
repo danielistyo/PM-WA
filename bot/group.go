@@ -66,10 +66,10 @@ func (c *Client) GetGroupPhoneMembers(ctx context.Context, groupJID types.JID) (
 		} else {
 			continue
 		}
-		
+
 		phone := userJID.User
 		name := phone // fallback
-		
+
 		// Attempt to get contact info
 		if contact, err := c.WA.Store.Contacts.GetContact(ctx, userJID); err == nil && contact.Found {
 			if contact.FullName != "" {
@@ -80,7 +80,7 @@ func (c *Client) GetGroupPhoneMembers(ctx context.Context, groupJID types.JID) (
 				name = contact.BusinessName
 			}
 		}
-		
+
 		members = append(members, MemberInfo{Phone: phone, Name: name})
 	}
 	return members, nil

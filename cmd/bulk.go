@@ -149,11 +149,11 @@ func ParseBulkPayload(text string) (*BulkPayload, error) {
 
 // validateBulkTasks validates every task block without touching the database.
 // Assignee membership is checked against a pre-fetched participant set; groups
-// whose participants are LID-only (hasPhoneJIDs=false) skip the check,
-// mirroring bot.IsUserInGroup's optimistic rule. It returns the valid tasks
-// plus one human-readable error per rejected task; the caller must add nothing
-// when errs is non-empty.
-func validateBulkTasks(waGroup, listName string, payload *BulkPayload, existingTitles map[string]bool, participants map[string]bool, hasPhoneJIDs bool) ([]BulkTask, []string) {
+// whose participants are LID-primary (canVerifyMembership=false, the rule
+// bot.IsUserInGroup applies) skip the check optimistically. It returns the
+// valid tasks plus one human-readable error per rejected task; the caller must
+// add nothing when errs is non-empty.
+func validateBulkTasks(waGroup, listName string, payload *BulkPayload, existingTitles map[string]bool, participants map[string]bool, canVerifyMembership bool) ([]BulkTask, []string) {
 	var errs []string
 	taskErr := func(idx int, title, format string, args ...any) {
 		errs = append(errs, fmt.Sprintf("Task #%d (%q): %s", idx, title, fmt.Sprintf(format, args...)))
@@ -203,7 +203,7 @@ func validateBulkTasks(waGroup, listName string, payload *BulkPayload, existingT
 		var assigneeJIDs []string
 		membersOK := true
 		for _, phone := range phones {
-			if hasPhoneJIDs && !participants[phone] {
+			if canVerifyMembership && !participants[phone] {
 				taskErr(idx, title, "Assignee %s is not a member of '%s'. Add them first.", phone, waGroup)
 				membersOK = false
 				break

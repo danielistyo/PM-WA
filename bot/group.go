@@ -7,6 +7,18 @@ import (
 	"go.mau.fi/whatsmeow/types"
 )
 
+// LIDPrimaryOnly reports whether every participant JID is on the "lid" server.
+// Shared by IsUserInGroup and GetGroupParticipantsEx so the LID-only
+// optimistic-membership rule keeps a single definition.
+func LIDPrimaryOnly(participants []types.GroupParticipant) bool {
+	for _, p := range participants {
+		if p.JID.Server != "lid" {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Client) IsUserInGroup(ctx context.Context, groupJID, userJID types.JID) (bool, error) {
 	groupInfo, err := c.WA.GetGroupInfo(ctx, groupJID)
 	if err != nil {
@@ -14,11 +26,8 @@ func (c *Client) IsUserInGroup(ctx context.Context, groupJID, userJID types.JID)
 		return false, err
 	}
 	targetUser := userJID.ToNonAD().User
-	hasLIDOnly := true
+	hasLIDOnly := LIDPrimaryOnly(groupInfo.Participants)
 	for _, p := range groupInfo.Participants {
-		if p.JID.Server != "lid" {
-			hasLIDOnly = false
-		}
 		if p.JID.ToNonAD().User == targetUser {
 			return true, nil
 		}
@@ -77,13 +86,24 @@ func (c *Client) GetGroupPhoneMembers(ctx context.Context, groupJID types.JID) (
 	return members, nil
 }
 
-func (c *Client) GetGroupParticipantsEx(ctx context.Context, groupJID types.JID) (map[string]bool, bool, error) {
+// GetGroupParticipantsEx fetches a group's participants once and indexes them
+// for membership lookups. Returns:
+//   - participants: set of every participant's primary JID user *and* phone
+//     number user when available (handles LID-primary groups whose assignees
+//     are stored as phone JIDs);
+//   - hasPhoneJIDs: the group exposes phone-keyed data (phone numbers or
+//     non-LID JIDs) — the scheduler's assignee-presence path keys on this;
+//   - lidPrimary: every participant JID is on the "lid" server, the same rule
+//     bot.IsUserInGroup applies; per-phone membership cannot be verified, so
+//     callers must skip the check optimistically.
+func (c *Client) GetGroupParticipantsEx(ctx context.Context, groupJID types.JID) (map[string]bool, bool, bool, error) {
 	groupInfo, err := c.WA.GetGroupInfo(ctx, groupJID)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	participants := make(map[string]bool)
 	hasPhoneJIDs := false
+	lidPrimary := LIDPrimaryOnly(groupInfo.Participants)
 	for _, p := range groupInfo.Participants {
 		if p.JID.Server != "lid" {
 			hasPhoneJIDs = true
@@ -97,7 +117,7 @@ func (c *Client) GetGroupParticipantsEx(ctx context.Context, groupJID types.JID)
 			hasPhoneJIDs = true
 		}
 	}
-	return participants, hasPhoneJIDs, nil
+	return participants, hasPhoneJIDs, lidPrimary, nil
 }
 
 // MemberGroupJIDs computes the set of group JIDs (as strings) in which userJID is a

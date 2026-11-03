@@ -16,7 +16,9 @@ func (s *Scheduler) refreshAssigneePresence(ctx context.Context, list *db.TaskLi
 		return
 	}
 
-	participantSet, hasPhoneJIDs, err := s.client.GetGroupParticipantsEx(ctx, groupJID)
+	// hasPhoneJIDs keeps its scheduler-era meaning (phone-keyed data present);
+	// lidPrimary is only relevant to membership validation and unused here.
+	participantSet, hasPhoneJIDs, _, err := s.client.GetGroupParticipantsEx(ctx, groupJID)
 	if err != nil {
 		return
 	}

@@ -145,18 +145,36 @@ func TestMaxBulkTasks(t *testing.T) {
 
 	// Build a payload one over the cap; ParseBulkPayload must not itself reject
 	// it (the cap is enforced by the handler), and must expose the full count.
+	overPayload := bulkPayload(t, maxBulkTasks+1)
+	if len(overPayload.Tasks) <= maxBulkTasks {
+		t.Fatalf("len(Tasks) = %d, want > %d", len(overPayload.Tasks), maxBulkTasks)
+	}
+
+	// Exactly at the cap must parse and validate cleanly.
+	exact, errs := validateBulkTasks("G", "L", bulkPayload(t, maxBulkTasks), nil,
+		map[string]bool{"6281200000000": true}, true)
+	if len(errs) != 0 {
+		t.Fatalf("boundary payload unexpected errors: %v", errs)
+	}
+	if len(exact) != maxBulkTasks {
+		t.Fatalf("len(exact) = %d, want %d", len(exact), maxBulkTasks)
+	}
+}
+
+// bulkPayload builds a parsed add-tasks payload with n task blocks (headers
+// included). Fails the test when the built payload does not parse.
+func bulkPayload(t *testing.T, n int) *BulkPayload {
+	t.Helper()
 	var sb strings.Builder
 	sb.WriteString("add-tasks\nwa-group: G\nlist: L")
-	for i := 1; i <= maxBulkTasks+1; i++ {
+	for i := 1; i <= n; i++ {
 		fmt.Fprintf(&sb, "\n\ntitle: Task %d\nassign: 6281200000000\ndeadline: 2026-01-01 09:00", i)
 	}
 	payload, err := ParseBulkPayload(sb.String())
 	if err != nil {
-		t.Fatalf("ParseBulkPayload() unexpected error: %v", err)
+		t.Fatalf("ParseBulkPayload(built %d blocks) unexpected error: %v", n, err)
 	}
-	if len(payload.Tasks) <= maxBulkTasks {
-		t.Fatalf("len(Tasks) = %d, want > %d", len(payload.Tasks), maxBulkTasks)
-	}
+	return payload
 }
 
 func validateExample(t *testing.T) (*BulkPayload, map[string]bool, map[string]bool, bool) {
@@ -301,10 +319,10 @@ func TestValidateBulkTasksErrors(t *testing.T) {
 }
 
 func TestValidateBulkTasksLIDOnlySkipsMembership(t *testing.T) {
-	// Parity with bot.IsUserInGroup: when the group exposes LID-only
-	// participants (no phone JIDs), membership cannot be verified and must be
-	// treated optimistically as passing, even for a phone that is not in the
-	// participant map.
+	// Parity with bot.IsUserInGroup: when every participant JID is on the
+	// LID server (canVerifyMembership=false), membership cannot be verified
+	// and must be treated optimistically as passing, even for a phone that is
+	// not in the participant map.
 	payload, err := ParseBulkPayload("add-tasks\nwa-group: G\nlist: L\n\ntitle: A\nassign: 6281111111111\ndeadline: 2026-11-06 17:00")
 	if err != nil {
 		t.Fatalf("ParseBulkPayload() unexpected error: %v", err)

@@ -29,7 +29,7 @@ func (h *Handler) addTasks(ctx context.Context, senderJID types.JID, text string
 		return
 	}
 	if len(payload.Tasks) > maxBulkTasks {
-		h.sendPM(ctx, senderJID, fmt.Sprintf("Command Aborted: %d task blocks found, but the maximum per command is %d.", len(payload.Tasks), maxBulkTasks))
+		h.sendPM(ctx, senderJID, fmt.Sprintf("Command Aborted: %d task blocks found, but the maximum per command is %d. %s", len(payload.Tasks), maxBulkTasks, bulkUsage))
 		return
 	}
 	if payload.WaGroup == "" || payload.ListName == "" {
@@ -71,17 +71,19 @@ func (h *Handler) addTasks(ctx context.Context, senderJID types.JID, text string
 	}
 
 	// One participants RPC for the whole batch; membership is checked in memory.
-	participants, hasPhoneJIDs, err := h.client.GetGroupParticipantsEx(ctx, groupJID)
+	participants, _, lidPrimary, err := h.client.GetGroupParticipantsEx(ctx, groupJID)
 	if err != nil {
 		slog.Error("add-tasks: failed to fetch participants", "group", groupJID.String(), "error", err)
 		h.sendPM(ctx, senderJID, "Command Aborted: Could not fetch group members for validation. Please retry.")
 		return
 	}
-	if !hasPhoneJIDs {
+	// Parity with add-task's IsUserInGroup quirk: LID-primary groups cannot be
+	// verified by phone-keyed membership, so the check is skipped optimistically.
+	if lidPrimary {
 		slog.Warn("add-tasks: group uses LID-only participants, skipping membership validation", "group", groupJID.String())
 	}
 
-	bulkTasks, errs := validateBulkTasks(payload.WaGroup, payload.ListName, payload, existingTitles, participants, hasPhoneJIDs)
+	bulkTasks, errs := validateBulkTasks(payload.WaGroup, payload.ListName, payload, existingTitles, participants, !lidPrimary)
 	if len(errs) > 0 {
 		h.sendPM(ctx, senderJID, "Command Aborted: Nothing was added.\n"+strings.Join(errs, "\n"))
 		return

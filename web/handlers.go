@@ -320,7 +320,7 @@ func (s *Server) parseTaskForm(m *mount, r *http.Request, list *db.TaskList) (ti
 	}
 
 	// Single API call to get all members for validation
-	participants, _, err := m.client.GetGroupParticipantsEx(r.Context(), groupJID)
+	participants, _, _, err := m.client.GetGroupParticipantsEx(r.Context(), groupJID)
 	if err != nil {
 		return "", 0, spec, nil, "Could not fetch group members for validation."
 	}

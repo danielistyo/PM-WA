@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -106,6 +107,100 @@ func (d *Database) CreateTask(taskListID int64, title string, deadline int64, re
 		ReminderAt:   reminderAt,
 		CreatedAt:    now,
 	}, nil
+}
+
+// BulkTaskRow is one task row for CreateTasks: the fields an already validated
+// bulk insert needs.
+type BulkTaskRow struct {
+	Title        string
+	Deadline     int64
+	ReminderMode string
+	ReminderCron string
+	ReminderAt   int64
+	AssigneeJIDs []string
+}
+
+// CreateTasks inserts several tasks for one list in a single transaction, in
+// block order. Positions continue from the current MAX(position). On any
+// constraint violation (e.g. a duplicate title) nothing is written and err is
+// returned. Callers must pre-validate titles; CreateTasks is not a substitute
+// for validation.
+func (d *Database) CreateTasks(taskListID int64, tasks []BulkTaskRow) ([]*Task, error) {
+	if len(tasks) == 0 {
+		return nil, errors.New("CreateTasks: no tasks provided")
+	}
+	tx, err := d.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var maxPos int
+	row := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) FROM tasks WHERE task_list_id = ?`, taskListID)
+	row.Scan(&maxPos)
+
+	now := time.Now().Unix()
+
+	created := make([]*Task, 0, len(tasks))
+	for _, t := range tasks {
+		maxPos++
+		reminderCron, reminderAt := normalizeReminder(t.ReminderMode, t.ReminderCron, t.ReminderAt)
+
+		res, err := tx.Exec(
+			`INSERT INTO tasks (task_list_id, position, title, status, deadline, reminder_mode, reminder_cron, reminder_at, last_reminded_at, created_at) VALUES (?, ?, ?, 'todo', ?, ?, ?, ?, 0, ?)`,
+			taskListID, maxPos, t.Title, t.Deadline, t.ReminderMode, reminderCron, reminderAt, now,
+		)
+		if err != nil {
+			return nil, err
+		}
+		taskID, _ := res.LastInsertId()
+
+		for _, jid := range t.AssigneeJIDs {
+			_, err = tx.Exec(`INSERT INTO task_assignees (task_id, assignee_jid, left_group) VALUES (?, ?, 0)`, taskID, jid)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		created = append(created, &Task{
+			ID:           taskID,
+			TaskListID:   taskListID,
+			Position:     maxPos,
+			Title:        t.Title,
+			Status:       "todo",
+			Deadline:     t.Deadline,
+			ReminderMode: t.ReminderMode,
+			ReminderCron: reminderCron,
+			ReminderAt:   reminderAt,
+			CreatedAt:    now,
+		})
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return created, nil
+}
+
+// GetTaskTitlesByList returns the titles of all tasks in one list with a single
+// query. Used for bulk duplicate checks; GetTasksByList would needlessly load
+// assignees (N+1) for validation that only needs titles.
+func (d *Database) GetTaskTitlesByList(taskListID int64) (map[string]bool, error) {
+	rows, err := d.db.Query(`SELECT title FROM tasks WHERE task_list_id = ?`, taskListID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	titles := make(map[string]bool)
+	for rows.Next() {
+		var title string
+		if err := rows.Scan(&title); err != nil {
+			return nil, err
+		}
+		titles[title] = true
+	}
+	return titles, rows.Err()
 }
 
 func (d *Database) GetTasksByList(taskListID int64) ([]Task, error) {

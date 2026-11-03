@@ -39,6 +39,8 @@ func (h *Handler) HandleCommand(senderJID types.JID, text string) {
 		h.addList(ctx, senderJID, parsed.Fields)
 	case "add-task":
 		h.addTask(ctx, senderJID, parsed.Fields)
+	case "add-tasks":
+		h.addTasks(ctx, senderJID, text)
 	case "publish-list":
 		h.publishList(ctx, senderJID, parsed.Fields)
 	case "stop-list":

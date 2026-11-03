@@ -61,52 +61,18 @@ func normalizeReminder(mode string, cron string, at int64) (string, int64) {
 }
 
 func (d *Database) CreateTask(taskListID int64, title string, deadline int64, reminderMode string, reminderCron string, reminderAt int64, assigneeJIDs []string) (*Task, error) {
-	reminderCron, reminderAt = normalizeReminder(reminderMode, reminderCron, reminderAt)
-	tx, err := d.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	var maxPos int
-	row := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) FROM tasks WHERE task_list_id = ?`, taskListID)
-	row.Scan(&maxPos)
-	position := maxPos + 1
-
-	now := time.Now().Unix()
-
-	res, err := tx.Exec(
-		`INSERT INTO tasks (task_list_id, position, title, status, deadline, reminder_mode, reminder_cron, reminder_at, last_reminded_at, created_at) VALUES (?, ?, ?, 'todo', ?, ?, ?, ?, 0, ?)`,
-		taskListID, position, title, deadline, reminderMode, reminderCron, reminderAt, now,
-	)
-	if err != nil {
-		return nil, err
-	}
-	taskID, _ := res.LastInsertId()
-
-	for _, jid := range assigneeJIDs {
-		_, err = tx.Exec(`INSERT INTO task_assignees (task_id, assignee_jid, left_group) VALUES (?, ?, 0)`, taskID, jid)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	return &Task{
-		ID:           taskID,
-		TaskListID:   taskListID,
-		Position:     position,
+	created, err := d.CreateTasks(taskListID, []BulkTaskRow{{
 		Title:        title,
-		Status:       "todo",
 		Deadline:     deadline,
 		ReminderMode: reminderMode,
 		ReminderCron: reminderCron,
 		ReminderAt:   reminderAt,
-		CreatedAt:    now,
-	}, nil
+		AssigneeJIDs: assigneeJIDs,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	return created[0], nil
 }
 
 // BulkTaskRow is one task row for CreateTasks: the fields an already validated
